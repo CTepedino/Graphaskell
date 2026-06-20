@@ -9,9 +9,11 @@ common warnings
 executable graphaskell
     import:           warnings
     main-is:          Main.hs
+    other-modules:    Cli.Options
     build-depends:
         base,
         async,
+        optparse-applicative,
         stm
     default-language: GHC2021
-    hs-source-dirs:   app
+    hs-source-dirs:   app, src
