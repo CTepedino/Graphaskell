@@ -18,14 +18,15 @@ import Graph.Types
 
 data Message
   = MsgDistance NodeId Int
-  | MsgVisit NodeId
+  | MsgLabel NodeId
+  | MsgRank Double
   deriving (Eq, Show)
 
 data VertexState = VertexState
   { vsDistance :: Maybe Int,
     vsPredecessor :: Maybe NodeId,
-    vsVisited :: Bool,
-    vsPath :: Maybe [NodeId]
+    vsLabel :: Maybe NodeId,
+    vsRank :: Maybe Double
   }
   deriving (Eq, Show)
 
@@ -34,12 +35,14 @@ initialVertexState =
   VertexState
     { vsDistance = Nothing,
       vsPredecessor = Nothing,
-      vsVisited = False,
-      vsPath = Nothing
+      vsLabel = Nothing,
+      vsRank = Nothing
     }
 
 data LogEntry
   = VertexUpdated NodeId Int
+  | VertexLabelUpdated NodeId NodeId
+  | VertexRankUpdated NodeId Double
   | MessageSent NodeId NodeId Message
   deriving (Eq, Show)
 
@@ -54,6 +57,9 @@ data SuperstepLog = SuperstepLog
 data Result
   = PathFound [NodeId] Int
   | NoPath
+  | ComponentFound NodeId [NodeId]
+  | Rankings [(NodeId, Double)]
+  | NodeLabels [(NodeId, NodeId)]
   | InputError InputError
   deriving (Eq, Show)
 
@@ -75,8 +81,7 @@ data RunConfig = RunConfig
 data VertexStepResult = VertexStepResult
   { vsrState :: VertexState,
     vsrOutgoing :: [(NodeId, Message)],
-    vsrLogs :: [LogEntry],
-    vsrChanged :: Bool
+    vsrLogs :: [LogEntry]
   }
   deriving (Eq, Show)
 

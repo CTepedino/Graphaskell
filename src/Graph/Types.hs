@@ -15,7 +15,12 @@ import qualified Data.Map.Strict as Map
 
 type NodeId = Int
 
-data Algorithm = BFS | DFS | Dijkstra
+data Algorithm
+  = BFS
+  | BellmanFord
+  | PageRank
+  | ConnectedComponents
+  | LabelPropagation
   deriving (Eq, Show, Read)
 
 data Edge = Edge
