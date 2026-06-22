@@ -1,27 +1,19 @@
 module Graph.Parser
-  ( GraphFile (..),
-    LoadGraphError (..),
+  ( LoadGraphError (..),
     loadGraphFile,
     parseGraphFile,
-    describeGraphFile,
+    describeGraph,
+    validateRunNodes,
     displayLoadGraphError,
   )
 where
 
 import Control.Exception (IOException, try)
 import Control.Monad ((<=<), foldM, when)
-import Data.Char (isSpace, toUpper)
+import Data.Char (isSpace)
 import Data.Foldable (traverse_)
 import Graph.ParseError
 import Graph.Types
-
-data GraphFile = GraphFile
-  { gfGraph :: Graph,
-    gfSource :: NodeId,
-    gfTarget :: Maybe NodeId,
-    gfAlgorithm :: Algorithm
-  }
-  deriving (Eq, Show)
 
 data LoadGraphError
   = LoadReadError FilePath String
@@ -39,7 +31,7 @@ displayLoadGraphError err =
     LoadParseError parseError ->
       displayParseError parseError
 
-loadGraphFile :: FilePath -> IO (Either LoadGraphError GraphFile)
+loadGraphFile :: FilePath -> IO (Either LoadGraphError Graph)
 loadGraphFile path = do
   result <- try (readFile path) :: IO (Either IOException String)
   pure $
@@ -49,32 +41,31 @@ loadGraphFile path = do
       Right contents ->
         case parseGraphFile contents of
           Left parseError -> Left (LoadParseError parseError)
-          Right graphFile -> Right graphFile
+          Right graph -> Right graph
 
-parseGraphFile :: String -> Either ParseError GraphFile
+parseGraphFile :: String -> Either ParseError Graph
 parseGraphFile =
   finalize <=< foldM step initialState . prepareLines
 
-describeGraphFile :: GraphFile -> String
-describeGraphFile gf =
+describeGraph :: Graph -> String
+describeGraph graph =
   unlines
-    [ "  Nodos:      " ++ show (nodeCount (gfGraph gf)),
-      "  Aristas:    " ++ show (length (graphEdges (gfGraph gf))),
-      "  Origen:     " ++ show (gfSource gf),
-      "  Destino:    " ++ maybe "—" show (gfTarget gf),
-      "  Algoritmo:  " ++ show (gfAlgorithm gf),
+    [ "  Nodos:      " ++ show (nodeCount graph),
+      "  Aristas:    " ++ show (length (graphEdges graph)),
       "",
-      adjSummary (gfGraph gf)
+      adjSummary graph
     ]
+
+validateRunNodes :: Graph -> NodeId -> Maybe NodeId -> Either ParseError ()
+validateRunNodes graph source target = do
+  validateNode graph CtxSource source
+  traverse_ (validateNode graph CtxTarget) target
 
 data ParseState = ParseState
   { psNodeCount :: Maybe Int,
     psWeighted :: Bool,
     psInEdges :: Bool,
-    psEdges :: [Edge],
-    psSource :: Maybe NodeId,
-    psTarget :: Maybe NodeId,
-    psAlgorithm :: Maybe Algorithm
+    psEdges :: [Edge]
   }
 
 initialState :: ParseState
@@ -83,10 +74,7 @@ initialState =
     { psNodeCount = Nothing,
       psWeighted = False,
       psInEdges = False,
-      psEdges = [],
-      psSource = Nothing,
-      psTarget = Nothing,
-      psAlgorithm = Nothing
+      psEdges = []
     }
 
 prepareLines :: String -> [String]
@@ -112,15 +100,12 @@ step st line =
       Right st {psInEdges = True}
     ["WEIGHTED"] ->
       Right st {psWeighted = True, psInEdges = False}
-    ["SOURCE", sStr] -> do
-      source <- parseNodeId CtxSource sStr
-      Right st {psSource = Just source, psInEdges = False}
-    ["TARGET", tStr] -> do
-      target <- parseNodeId CtxTarget tStr
-      Right st {psTarget = Just target, psInEdges = False}
-    ["ALGORITHM", algStr] -> do
-      algorithm <- parseAlgorithm algStr
-      Right st {psAlgorithm = Just algorithm, psInEdges = False}
+    ["SOURCE", _] ->
+      Left (LegacyCliDirective "SOURCE")
+    ["TARGET", _] ->
+      Left (LegacyCliDirective "TARGET")
+    ["ALGORITHM", _] ->
+      Left (LegacyCliDirective "ALGORITHM")
     ws | psInEdges st ->
       parseEdgeLine st ws
     _ ->
@@ -148,27 +133,17 @@ parseEdgeLine st ws
           Left (WeightOnUnweightedGraph (unwords ws))
         _ -> Left InvalidUnweightedEdge
 
-finalize :: ParseState -> Either ParseError GraphFile
+finalize :: ParseState -> Either ParseError Graph
 finalize st = do
   nodeTotal <-
     maybe (Left (MissingDirective DirNodes)) Right (psNodeCount st)
   when (null (psEdges st)) $
     Left NoEdges
-  source <-
-    maybe (Left (MissingDirective DirSource)) Right (psSource st)
   let graph = buildGraph nodeTotal (psEdges st)
-  validateNode graph CtxSource source
-  traverse_ (validateNode graph CtxTarget) (psTarget st)
   mapM_ (validateEdge graph) (psEdges st)
   when (psWeighted st && any (== Nothing) (map edgeWeight (psEdges st))) $
     Left WeightedModeMismatch
-  pure
-    GraphFile
-      { gfGraph = graph,
-        gfSource = source,
-        gfTarget = psTarget st,
-        gfAlgorithm = maybe BFS id (psAlgorithm st)
-      }
+  pure graph
 
 validateNode :: Graph -> ParseContext -> NodeId -> Either ParseError ()
 validateNode graph ctx nodeId
@@ -192,14 +167,6 @@ parseNodeId ctx raw =
   case reads raw of
     [(n, "")] | n >= 0 -> Right n
     _ -> Left (InvalidNodeId ctx raw)
-
-parseAlgorithm :: String -> Either ParseError Algorithm
-parseAlgorithm raw =
-  case map toUpper raw of
-    "BFS" -> Right BFS
-    "DFS" -> Right DFS
-    "DIJKSTRA" -> Right Dijkstra
-    _ -> Left (UnknownAlgorithm raw)
 
 adjSummary :: Graph -> String
 adjSummary graph =

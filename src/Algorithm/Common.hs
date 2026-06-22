@@ -1,36 +1,37 @@
 module Algorithm.Common
-  ( lookupEdgeWeight,
+  ( UpdateM,
+    validateWeightedGraph,
     extractPathResult,
-    extractVisitedResult,
+    extractComponentResult,
+    extractRankingsResult,
+    extractLabelResult,
     reconstructPath,
-    isVisited,
-    firstUnvisitedNeighbor,
+    runVertexUpdate,
+    stepResult,
   )
 where
 
-import Data.List (find, sort)
+import Algorithm.Error (AlgorithmError (..))
+import Control.Monad.State.Strict (StateT, runStateT)
+import Control.Monad.Writer.Strict (Writer, runWriter)
+import Data.List (sort)
+import Data.Maybe (isJust)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import Graph.Types
+import Graph.VertexContext (VertexContext (vcNodeId))
 import Pregel.Types
 
-lookupEdgeWeight :: Graph -> NodeId -> NodeId -> Maybe Int
-lookupEdgeWeight graph from to =
-  case [weight | (neighbor, weight) <- neighbors graph from, neighbor == to] of
-    (weight : _) -> weight
-    [] -> Nothing
+type UpdateM a = StateT VertexState (Writer [LogEntry]) a
 
-isVisited :: VertexStates -> NodeId -> Bool
-isVisited states nodeId =
-  maybe False vsVisited (Map.lookup nodeId states)
-
-firstUnvisitedNeighbor :: Graph -> VertexStates -> NodeId -> Maybe NodeId
-firstUnvisitedNeighbor graph states nodeId =
-  find (not . isVisited states) (sortedNeighbors graph nodeId)
-
-sortedNeighbors :: Graph -> NodeId -> [NodeId]
-sortedNeighbors graph nodeId =
-  sort (map fst (neighbors graph nodeId))
+validateWeightedGraph :: Graph -> Either AlgorithmError ()
+validateWeightedGraph graph
+  | null (graphEdges graph) =
+      Left WeightedGraphRequired
+  | all (isJust . edgeWeight) (graphEdges graph) =
+      Right ()
+  | otherwise =
+      Left WeightedGraphRequired
 
 extractPathResult :: Map NodeId VertexState -> RunConfig -> Result
 extractPathResult states cfg =
@@ -50,24 +51,39 @@ extractPathResult states cfg =
                     then NoPath
                     else PathFound path dist
 
-extractVisitedResult :: Map NodeId VertexState -> RunConfig -> Result
-extractVisitedResult states cfg =
-  case rcTarget cfg of
+extractComponentResult :: Map NodeId VertexState -> RunConfig -> Result
+extractComponentResult states cfg =
+  case Map.lookup (rcSource cfg) states >>= vsLabel of
     Nothing ->
-      InputError MissingTarget
-    Just target ->
-      case Map.lookup target states of
-        Nothing ->
-          InputError (TargetNodeMissing target)
-        Just vertexState
-          | not (vsVisited vertexState) ->
-              NoPath
-          | otherwise ->
-              let path = reconstructPath states target (rcSource cfg)
-                  dist = maybe 0 id (vsDistance vertexState)
-               in if null path
-                    then NoPath
-                    else PathFound path dist
+      InputError (TargetNodeMissing (rcSource cfg))
+    Just componentLabel ->
+      let members =
+            sort
+              [ nodeId
+                | (nodeId, vertexState) <- Map.toList states,
+                  vsLabel vertexState == Just componentLabel
+              ]
+       in ComponentFound componentLabel members
+
+extractRankingsResult :: Map NodeId VertexState -> RunConfig -> Result
+extractRankingsResult states _cfg =
+  Rankings
+    ( sort
+        [ (nodeId, rank)
+          | (nodeId, vertexState) <- Map.toList states,
+            Just rank <- [vsRank vertexState]
+        ]
+    )
+
+extractLabelResult :: Map NodeId VertexState -> RunConfig -> Result
+extractLabelResult states _cfg =
+  NodeLabels
+    ( sort
+        [ (nodeId, label)
+          | (nodeId, vertexState) <- Map.toList states,
+            Just label <- [vsLabel vertexState]
+        ]
+    )
 
 reconstructPath :: Map NodeId VertexState -> NodeId -> NodeId -> [NodeId]
 reconstructPath states target source = go target []
@@ -78,3 +94,37 @@ reconstructPath states target source = go target []
           case Map.lookup node states >>= vsPredecessor of
             Just predecessor -> go predecessor (node : acc)
             Nothing -> []
+
+runVertexUpdate ::
+  VertexContext ->
+  VertexState ->
+  [Message] ->
+  UpdateM Bool ->
+  (VertexContext -> VertexState -> [(NodeId, Message)]) ->
+  VertexStepResult
+runVertexUpdate vtx state _messages update emit =
+  let nodeId = vcNodeId vtx
+      ((changed, newState), logs) =
+        runWriter (runStateT update state)
+      outgoing =
+        if changed
+          then emit vtx newState
+          else []
+   in stepResult nodeId newState outgoing logs
+
+stepResult ::
+  NodeId ->
+  VertexState ->
+  [(NodeId, Message)] ->
+  [LogEntry] ->
+  VertexStepResult
+stepResult nodeId newState outgoing logs =
+  let sentLogs =
+        [ MessageSent nodeId to msg
+          | (to, msg) <- outgoing
+        ]
+   in VertexStepResult
+        { vsrState = newState,
+          vsrOutgoing = outgoing,
+          vsrLogs = logs ++ sentLogs
+        }

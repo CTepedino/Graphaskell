@@ -10,7 +10,6 @@ import Graph.Types (NodeId)
 
 data Directive
   = DirNodes
-  | DirSource
   deriving (Eq, Show)
 
 data ParseContext
@@ -20,17 +19,16 @@ data ParseContext
   | CtxEdgeFrom
   | CtxEdgeTo
   | CtxEdgeWeight
-  | CtxAlgorithm
   deriving (Eq, Show)
 
 data ParseError
   = MissingDirective Directive
   | NoEdges
   | UnknownLine String
+  | LegacyCliDirective String
   | InvalidPositiveInteger ParseContext String
   | InvalidNodeId ParseContext String
   | NodeOutOfRange ParseContext NodeId Int
-  | UnknownAlgorithm String
   | WeightOnUnweightedGraph String
   | InvalidUnweightedEdge
   | InvalidWeightedEdge
@@ -42,12 +40,14 @@ displayParseError err =
   case err of
     MissingDirective DirNodes ->
       "Falta la directiva NODES"
-    MissingDirective DirSource ->
-      "Falta la directiva SOURCE"
     NoEdges ->
       "Falta la seccion EDGES o no hay aristas definidas"
     UnknownLine line ->
       "Linea desconocida o fuera de la seccion EDGES: " ++ line
+    LegacyCliDirective name ->
+      name
+        ++ " ya no se define en el archivo; "
+        ++ "use la linea de comandos (--source, --target o --algorithm)"
     InvalidPositiveInteger ctx raw ->
       showContext ctx ++ " debe ser un entero positivo: " ++ raw
     InvalidNodeId ctx raw ->
@@ -59,10 +59,6 @@ displayParseError err =
         ++ " fuera de rango [0, "
         ++ show maxNode
         ++ "]"
-    UnknownAlgorithm raw ->
-      "Algoritmo desconocido: "
-        ++ raw
-        ++ " (use BFS, DFS o DIJKSTRA)"
     WeightOnUnweightedGraph line ->
       "Arista con peso encontrada pero falta la directiva WEIGHTED: " ++ line
     InvalidUnweightedEdge ->
@@ -81,4 +77,3 @@ showContext ctx =
     CtxEdgeFrom -> "arista (origen)"
     CtxEdgeTo -> "arista (destino)"
     CtxEdgeWeight -> "arista (peso)"
-    CtxAlgorithm -> "ALGORITHM"
