@@ -3,13 +3,14 @@ module Algorithm.BFS
   )
 where
 
-import Algorithm.Common (extractPathResult)
+import Algorithm.Common (UpdateM, extractPathResult, runVertexUpdate)
 import Algorithm.Types (AlgorithmSpec (..))
-import Control.Monad.State.Strict (StateT, get, put, runStateT)
-import Control.Monad.Writer.Strict (Writer, runWriter, tell)
+import Control.Monad.State.Strict (get, put)
+import Control.Monad.Writer.Strict (tell)
 import Data.List (minimumBy)
 import Data.Ord (comparing)
 import Graph.Types
+import Graph.VertexContext (VertexContext (..), outNeighbors)
 import Pregel.Types
 
 bfsSpec :: AlgorithmSpec
@@ -35,31 +36,13 @@ bootstrap cfg =
   ]
 
 vertexUpdate ::
-  Graph ->
-  VertexStates ->
-  NodeId ->
+  VertexContext ->
   VertexState ->
   [Message] ->
   VertexStepResult
-vertexUpdate graph _allStates nodeId state messages =
-  let ((changed, newState), logs) =
-        runWriter (runStateT (bfsUpdate nodeId messages) state)
-      outgoing =
-        if changed
-          then emitOutgoing graph nodeId newState
-          else []
-      sentLogs =
-        [ MessageSent nodeId to msg
-          | (to, msg) <- outgoing
-        ]
-   in VertexStepResult
-        { vsrState = newState,
-          vsrOutgoing = outgoing,
-          vsrLogs = logs ++ sentLogs,
-          vsrChanged = changed
-        }
-
-type UpdateM a = StateT VertexState (Writer [LogEntry]) a
+vertexUpdate vtx state messages =
+  let nodeId = vcNodeId vtx
+   in runVertexUpdate vtx state messages (bfsUpdate nodeId messages) emitOutgoing
 
 bfsUpdate :: NodeId -> [Message] -> UpdateM Bool
 bfsUpdate nodeId messages = do
@@ -84,11 +67,11 @@ bfsUpdate nodeId messages = do
               }
           pure True
 
-emitOutgoing :: Graph -> NodeId -> VertexState -> [(NodeId, Message)]
-emitOutgoing graph nodeId state =
+emitOutgoing :: VertexContext -> VertexState -> [(NodeId, Message)]
+emitOutgoing vtx state =
   case vsDistance state of
     Nothing -> []
     Just dist ->
-      [ (to, MsgDistance nodeId dist)
-        | (to, _) <- neighbors graph nodeId
+      [ (to, MsgDistance (vcNodeId vtx) dist)
+        | to <- outNeighbors vtx
       ]

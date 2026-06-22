@@ -20,16 +20,19 @@ library
     ghc-options:      -Wall
     exposed-modules:
         Algorithm.BFS,
+        Algorithm.BellmanFord,
         Algorithm.Common,
-        Algorithm.DFS,
-        Algorithm.Dijkstra,
+        Algorithm.ConnectedComponents,
         Algorithm.Error,
+        Algorithm.LabelPropagation,
+        Algorithm.PageRank,
         Algorithm.Spec,
         Algorithm.Types,
         Cli.Options,
         Graph.ParseError,
         Graph.Parser,
         Graph.Types,
+        Graph.VertexContext,
         Output.Trace,
         Pregel.Engine,
         Pregel.Env,
@@ -55,6 +58,7 @@ test-suite graphaskell-test
     other-modules:
         ParserTests,
         AlgorithmTests,
+        TraceTests,
         Fixtures
     build-depends:
         base,
