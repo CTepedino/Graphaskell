@@ -46,6 +46,22 @@ data LogEntry
   | MessageSent NodeId NodeId Message
   deriving (Eq, Show)
 
+instance Ord LogEntry where
+  compare left right =
+    compare (logEntrySortKey left) (logEntrySortKey right)
+
+logEntrySortKey :: LogEntry -> (Int, Int, Int)
+logEntrySortKey entry =
+  case entry of
+    VertexUpdated nodeId _ ->
+      (0, nodeId, 0)
+    VertexLabelUpdated nodeId _ ->
+      (1, nodeId, 0)
+    VertexRankUpdated nodeId _ ->
+      (2, nodeId, 0)
+    MessageSent from to _ ->
+      (3, from, to)
+
 data SuperstepLog = SuperstepLog
   { sslStep :: Int,
     sslActiveVertices :: Int,

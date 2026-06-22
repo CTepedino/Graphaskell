@@ -4,7 +4,7 @@ module Output.Trace
   )
 where
 
-import Data.List (sortBy)
+import Data.List (sort)
 import Pregel.Engine (PregelRun (..))
 import Pregel.Types
 
@@ -49,43 +49,7 @@ describeSuperstep verbose stepLog =
 
 sortedEntries :: SuperstepLog -> [LogEntry]
 sortedEntries stepLog =
-  sortBy compareLogEntry (sslEntries stepLog)
-
-compareLogEntry :: LogEntry -> LogEntry -> Ordering
-compareLogEntry left right =
-  case (left, right) of
-    (VertexUpdated n1 _, VertexUpdated n2 _) ->
-      compare n1 n2
-    (VertexLabelUpdated n1 _, VertexLabelUpdated n2 _) ->
-      compare n1 n2
-    (VertexRankUpdated n1 _, VertexRankUpdated n2 _) ->
-      compare n1 n2
-    (MessageSent _ _ _, VertexUpdated _ _) ->
-      GT
-    (MessageSent _ _ _, VertexLabelUpdated _ _) ->
-      GT
-    (MessageSent _ _ _, VertexRankUpdated _ _) ->
-      GT
-    (VertexUpdated _ _, MessageSent _ _ _) ->
-      LT
-    (VertexLabelUpdated _ _, MessageSent _ _ _) ->
-      LT
-    (VertexRankUpdated _ _, MessageSent _ _ _) ->
-      LT
-    (MessageSent f1 t1 _, MessageSent f2 t2 _) ->
-      compare f1 f2 <> compare t1 t2
-    (VertexUpdated _ _, VertexLabelUpdated _ _) ->
-      LT
-    (VertexLabelUpdated _ _, VertexUpdated _ _) ->
-      GT
-    (VertexUpdated _ _, VertexRankUpdated _ _) ->
-      LT
-    (VertexRankUpdated _ _, VertexUpdated _ _) ->
-      GT
-    (VertexLabelUpdated _ _, VertexRankUpdated _ _) ->
-      LT
-    (VertexRankUpdated _ _, VertexLabelUpdated _ _) ->
-      GT
+  sort (sslEntries stepLog)
 
 describeLogEntry :: LogEntry -> String
 describeLogEntry entry =

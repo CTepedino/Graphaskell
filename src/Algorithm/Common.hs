@@ -1,5 +1,5 @@
 module Algorithm.Common
-  ( UpdateM,
+  ( VertexUpdate (..),
     validateWeightedGraph,
     extractPathResult,
     extractComponentResult,
@@ -8,21 +8,30 @@ module Algorithm.Common
     reconstructPath,
     runVertexUpdate,
     stepResult,
+    bfsCandidates,
+    tryImproveDistance,
+    tryRelabel,
+    labelsFromMessages,
+    labelBootstrap,
+    emitLabelMessages,
+    minimumWithSelf,
   )
 where
 
 import Algorithm.Error (AlgorithmError (..))
-import Control.Monad.State.Strict (StateT, runStateT)
-import Control.Monad.Writer.Strict (Writer, runWriter)
-import Data.List (sort)
+import Data.List (minimumBy, sort)
 import Data.Maybe (isJust)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
+import Data.Ord (comparing)
 import Graph.Types
-import Graph.VertexContext (VertexContext (vcNodeId))
+import Graph.VertexContext (VertexContext, outNeighbors, vcNodeId)
 import Pregel.Types
 
-type UpdateM a = StateT VertexState (Writer [LogEntry]) a
+data VertexUpdate
+  = Unchanged
+  | Updated VertexState [LogEntry]
+  deriving (Eq, Show)
 
 validateWeightedGraph :: Graph -> Either AlgorithmError ()
 validateWeightedGraph graph
@@ -99,18 +108,16 @@ runVertexUpdate ::
   VertexContext ->
   VertexState ->
   [Message] ->
-  UpdateM Bool ->
+  ([Message] -> VertexState -> VertexUpdate) ->
   (VertexContext -> VertexState -> [(NodeId, Message)]) ->
   VertexStepResult
-runVertexUpdate vtx state _messages update emit =
+runVertexUpdate vtx state messages update emit =
   let nodeId = vcNodeId vtx
-      ((changed, newState), logs) =
-        runWriter (runStateT update state)
-      outgoing =
-        if changed
-          then emit vtx newState
-          else []
-   in stepResult nodeId newState outgoing logs
+   in case update messages state of
+        Unchanged ->
+          stepResult nodeId state [] []
+        Updated newState logs ->
+          stepResult nodeId newState (emit vtx newState) logs
 
 stepResult ::
   NodeId ->
@@ -128,3 +135,73 @@ stepResult nodeId newState outgoing logs =
           vsrOutgoing = outgoing,
           vsrLogs = logs ++ sentLogs
         }
+
+-- | Extract hop-distance offers from incoming BFS messages.
+bfsCandidates :: [Message] -> [(Int, NodeId)]
+bfsCandidates messages =
+  [ (dist + 1, from)
+    | MsgDistance from dist <- messages
+  ]
+
+-- | Apply the best distance offer when it strictly improves the current value.
+tryImproveDistance ::
+  NodeId ->
+  [(Int, NodeId)] ->
+  VertexState ->
+  VertexUpdate
+tryImproveDistance _ [] _ =
+  Unchanged
+tryImproveDistance nodeId candidates state =
+  let (newDist, predecessor) =
+        minimumBy (comparing fst) candidates
+   in case vsDistance state of
+        Just current | newDist >= current ->
+          Unchanged
+        _ ->
+          Updated
+            ( state
+                { vsDistance = Just newDist,
+                  vsPredecessor = Just predecessor
+                }
+            )
+            [VertexUpdated nodeId newDist]
+
+-- | Relabel a vertex when the proposed label differs from the current one.
+tryRelabel ::
+  NodeId ->
+  NodeId ->
+  VertexState ->
+  VertexUpdate
+tryRelabel nodeId newLabel state =
+  let current = maybe nodeId id (vsLabel state)
+   in if newLabel == current
+        then Unchanged
+        else
+          Updated
+            (state {vsLabel = Just newLabel})
+            [VertexLabelUpdated nodeId newLabel]
+
+labelsFromMessages :: [Message] -> [NodeId]
+labelsFromMessages messages =
+  [ label
+    | MsgLabel label <- messages
+  ]
+
+minimumWithSelf :: NodeId -> [NodeId] -> NodeId
+minimumWithSelf self labels =
+  minimum (self : labels)
+
+labelBootstrap :: RunConfig -> [(NodeId, Message)]
+labelBootstrap cfg =
+  let graph = rcGraph cfg
+   in [ (to, MsgLabel nodeId)
+        | nodeId <- graphNodes graph,
+          (to, _) <- neighbors graph nodeId
+      ]
+
+emitLabelMessages :: VertexContext -> VertexState -> [(NodeId, Message)]
+emitLabelMessages vtx state =
+  [ (to, MsgLabel label)
+    | Just label <- [vsLabel state],
+      to <- outNeighbors vtx
+  ]
