@@ -2,7 +2,7 @@ module Fixtures
   ( simpleGraphText,
     weightedGraphText,
     disconnectedGraphText,
-    noTargetGraphText,
+    pageRankGraphText,
     parseFixture,
     runFixture,
     mkRunConfigFor,
@@ -12,8 +12,8 @@ where
 
 import Algorithm.Spec (resolveAlgorithm)
 import Algorithm.Types (AlgorithmSpec)
-import Graph.Parser (GraphFile (..), parseGraphFile)
-import Graph.Types (Algorithm (..), Graph)
+import Graph.Parser (parseGraphFile)
+import Graph.Types (Algorithm (..), Graph, NodeId)
 import Pregel.Types (RunConfig)
 import Pregel.Engine (PregelRun, mkRunConfig, runSequential)
 
@@ -26,10 +26,7 @@ simpleGraphText =
       "0 2",
       "1 3",
       "2 3",
-      "3 4",
-      "SOURCE 0",
-      "TARGET 4",
-      "ALGORITHM BFS"
+      "3 4"
     ]
 
 weightedGraphText :: String
@@ -42,10 +39,7 @@ weightedGraphText =
       "0 2 1",
       "2 1 2",
       "1 3 1",
-      "2 3 5",
-      "SOURCE 0",
-      "TARGET 3",
-      "ALGORITHM DIJKSTRA"
+      "2 3 5"
     ]
 
 disconnectedGraphText :: String
@@ -54,28 +48,25 @@ disconnectedGraphText =
     [ "NODES 4",
       "EDGES",
       "0 1",
-      "2 3",
-      "SOURCE 0",
-      "TARGET 3",
-      "ALGORITHM BFS"
+      "2 3"
     ]
 
-noTargetGraphText :: String
-noTargetGraphText =
+pageRankGraphText :: String
+pageRankGraphText =
   unlines
-    [ "NODES 3",
+    [ "NODES 4",
       "EDGES",
       "0 1",
       "1 2",
-      "SOURCE 0",
-      "ALGORITHM BFS"
+      "2 0",
+      "1 3"
     ]
 
-parseFixture :: String -> GraphFile
+parseFixture :: String -> Graph
 parseFixture text =
   case parseGraphFile text of
     Left parseError -> error ("parseFixture: " ++ show parseError)
-    Right graphFile -> graphFile
+    Right graph -> graph
 
 resolveFixture :: Algorithm -> Graph -> AlgorithmSpec
 resolveFixture algorithm graph =
@@ -83,13 +74,23 @@ resolveFixture algorithm graph =
     Left algorithmError -> error ("resolveFixture: " ++ show algorithmError)
     Right spec -> spec
 
-mkRunConfigFor :: GraphFile -> Algorithm -> Int -> RunConfig
-mkRunConfigFor graphFile algorithm threads =
-  mkRunConfig (graphFile {gfAlgorithm = algorithm}) threads
+mkRunConfigFor ::
+  Graph ->
+  NodeId ->
+  Maybe NodeId ->
+  Algorithm ->
+  Int ->
+  RunConfig
+mkRunConfigFor = mkRunConfig
 
-runFixture :: Algorithm -> String -> PregelRun
-runFixture algorithm text =
-  let graphFile = parseFixture text
-      spec = resolveFixture algorithm (gfGraph graphFile)
-      cfg = mkRunConfigFor graphFile algorithm 1
+runFixture ::
+  Algorithm ->
+  NodeId ->
+  Maybe NodeId ->
+  String ->
+  PregelRun
+runFixture algorithm source target text =
+  let graph = parseFixture text
+      spec = resolveFixture algorithm graph
+      cfg = mkRunConfigFor graph source target algorithm 1
    in runSequential cfg spec
