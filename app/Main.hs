@@ -1,7 +1,16 @@
 module Main where
 
+import Algorithm.Error (displayAlgorithmError)
+import Algorithm.Spec (resolveAlgorithm)
 import Cli.Options (Options (..), parseOptions)
-import Graph.Parser (describeGraphFile, loadGraphFile)
+import Graph.Parser
+  ( GraphFile (..),
+    describeGraphFile,
+    displayLoadGraphError,
+    loadGraphFile,
+  )
+import Output.Trace (describeRun)
+import Pregel.Engine (mkRunConfig, runPregel)
 import System.Exit (die)
 
 main :: IO ()
@@ -20,13 +29,29 @@ run opts = do
       ++ " / "
       ++ show (optMaxCapabilities opts)
       ++ " capacidades"
+  putStrLn $
+    "  Verbose:      "
+      ++ if optVerbose opts then "si" else "no"
   putStrLn ""
 
-  result <- loadGraphFile (optGraphPath opts)
-  case result of
+  graphResult <- loadGraphFile (optGraphPath opts)
+  case graphResult of
     Left err ->
-      die $ "Error al cargar el grafo: " ++ err
+      die $ "Error al cargar el grafo: " ++ displayLoadGraphError err
     Right graphFile -> do
       putStrLn "Grafo cargado:"
       putStrLn ""
       putStrLn (describeGraphFile graphFile)
+      putStrLn ""
+
+      spec <-
+        either
+          (\algorithmError -> die (displayAlgorithmError algorithmError))
+          pure
+          (resolveAlgorithm (gfGraph graphFile) (gfAlgorithm graphFile))
+      let cfg = mkRunConfig graphFile (optThreads opts)
+      pregelRun <- runPregel cfg spec
+
+      putStrLn "Ejecucion Pregel (async + STM):"
+      putStrLn ""
+      putStrLn (describeRun (optVerbose opts) pregelRun)

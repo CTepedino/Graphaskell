@@ -12,13 +12,14 @@ import System.Exit (die)
 data Options = Options
   { optThreads :: Int,
     optGraphPath :: FilePath,
-    optMaxCapabilities :: Int
+    optMaxCapabilities :: Int,
+    optVerbose :: Bool
   }
   deriving (Eq, Show)
 
-rawParser :: Parser (Maybe Int, FilePath)
+rawParser :: Parser (Maybe Int, Bool, FilePath)
 rawParser =
-  (,)
+  (,,)
     <$> optional
       ( option
           auto
@@ -30,6 +31,11 @@ rawParser =
                 \ (default: todas las capacidades del runtime, ver +RTS -N)"
           )
       )
+    <*> switch
+      ( long "verbose"
+          <> short 'v'
+          <> help "Trazas detalladas por superstep (mensajes y actualizaciones)"
+      )
     <*> strArgument
       ( metavar "GRAFO"
           <> help "Path al archivo de grafo"
@@ -38,7 +44,7 @@ rawParser =
 parseOptions :: IO Options
 parseOptions = do
   maxThreads <- getNumCapabilities
-  (mThreads, graphPath) <-
+  (mThreads, verbose, graphPath) <-
     execParser
       ( info
           (helper <*> rawParser)
@@ -60,5 +66,6 @@ parseOptions = do
     Options
       { optThreads = threads,
         optGraphPath = graphPath,
-        optMaxCapabilities = maxThreads
+        optMaxCapabilities = maxThreads,
+        optVerbose = verbose
       }
