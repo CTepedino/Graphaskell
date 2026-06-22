@@ -1,14 +1,18 @@
 module Graph.Parser
   ( GraphFile (..),
+    LoadGraphError (..),
     loadGraphFile,
     parseGraphFile,
     describeGraphFile,
+    displayLoadGraphError,
   )
 where
 
+import Control.Exception (IOException, try)
 import Control.Monad ((<=<), foldM, when)
 import Data.Char (isSpace, toUpper)
 import Data.Foldable (traverse_)
+import Graph.ParseError
 import Graph.Types
 
 data GraphFile = GraphFile
@@ -19,12 +23,35 @@ data GraphFile = GraphFile
   }
   deriving (Eq, Show)
 
-loadGraphFile :: FilePath -> IO (Either String GraphFile)
-loadGraphFile path = do
-  contents <- readFile path
-  pure (parseGraphFile contents)
+data LoadGraphError
+  = LoadReadError FilePath String
+  | LoadParseError ParseError
+  deriving (Eq, Show)
 
-parseGraphFile :: String -> Either String GraphFile
+displayLoadGraphError :: LoadGraphError -> String
+displayLoadGraphError err =
+  case err of
+    LoadReadError path message ->
+      "No se pudo leer el archivo "
+        ++ path
+        ++ ": "
+        ++ message
+    LoadParseError parseError ->
+      displayParseError parseError
+
+loadGraphFile :: FilePath -> IO (Either LoadGraphError GraphFile)
+loadGraphFile path = do
+  result <- try (readFile path) :: IO (Either IOException String)
+  pure $
+    case result of
+      Left exception ->
+        Left (LoadReadError path (show exception))
+      Right contents ->
+        case parseGraphFile contents of
+          Left parseError -> Left (LoadParseError parseError)
+          Right graphFile -> Right graphFile
+
+parseGraphFile :: String -> Either ParseError GraphFile
 parseGraphFile =
   finalize <=< foldM step initialState . prepareLines
 
@@ -39,8 +66,6 @@ describeGraphFile gf =
       "",
       adjSummary (gfGraph gf)
     ]
-
--- | Internal parse state
 
 data ParseState = ParseState
   { psNodeCount :: Maybe Int,
@@ -77,21 +102,21 @@ stripComment = takeWhile (/= '#')
 trim :: String -> String
 trim = reverse . dropWhile isSpace . reverse . dropWhile isSpace
 
-step :: ParseState -> String -> Either String ParseState
+step :: ParseState -> String -> Either ParseError ParseState
 step st line =
   case words line of
     ["NODES", nStr] -> do
-      n <- parsePositive "NODES" nStr
+      n <- parsePositive CtxNodes nStr
       Right st {psNodeCount = Just n, psInEdges = False}
     ["EDGES"] ->
       Right st {psInEdges = True}
     ["WEIGHTED"] ->
       Right st {psWeighted = True, psInEdges = False}
     ["SOURCE", sStr] -> do
-      source <- parseNodeId "SOURCE" sStr
+      source <- parseNodeId CtxSource sStr
       Right st {psSource = Just source, psInEdges = False}
     ["TARGET", tStr] -> do
-      target <- parseNodeId "TARGET" tStr
+      target <- parseNodeId CtxTarget tStr
       Right st {psTarget = Just target, psInEdges = False}
     ["ALGORITHM", algStr] -> do
       algorithm <- parseAlgorithm algStr
@@ -99,53 +124,44 @@ step st line =
     ws | psInEdges st ->
       parseEdgeLine st ws
     _ ->
-      Left $
-        "Linea desconocida o fuera de la seccion EDGES: "
-          ++ line
+      Left (UnknownLine line)
 
-parseEdgeLine :: ParseState -> [String] -> Either String ParseState
+parseEdgeLine :: ParseState -> [String] -> Either ParseError ParseState
 parseEdgeLine st ws
   | psWeighted st =
       case ws of
         [fromStr, toStr, weightStr] -> do
-          from <- parseNodeId "arista (origen)" fromStr
-          to <- parseNodeId "arista (destino)" toStr
-          weight <- parsePositive "arista (peso)" weightStr
+          from <- parseNodeId CtxEdgeFrom fromStr
+          to <- parseNodeId CtxEdgeTo toStr
+          weight <- parsePositive CtxEdgeWeight weightStr
           let edge = Edge from to (Just weight)
           Right st {psEdges = psEdges st ++ [edge]}
-        _ ->
-          Left $
-            "En modo WEIGHTED cada arista debe tener formato: \
-            \<origen> <destino> <peso>"
+        _ -> Left InvalidWeightedEdge
   | otherwise =
       case ws of
         [fromStr, toStr] -> do
-          from <- parseNodeId "arista (origen)" fromStr
-          to <- parseNodeId "arista (destino)" toStr
+          from <- parseNodeId CtxEdgeFrom fromStr
+          to <- parseNodeId CtxEdgeTo toStr
           let edge = Edge from to Nothing
           Right st {psEdges = psEdges st ++ [edge]}
-        [_, _, _weightStr] ->
-          Left $
-            "Arista con peso encontrada pero falta la directiva WEIGHTED: "
-              ++ unwords ws
-        _ ->
-          Left $
-            "Cada arista debe tener formato: <origen> <destino>"
+        [_, _, _] ->
+          Left (WeightOnUnweightedGraph (unwords ws))
+        _ -> Left InvalidUnweightedEdge
 
-finalize :: ParseState -> Either String GraphFile
+finalize :: ParseState -> Either ParseError GraphFile
 finalize st = do
   nodeTotal <-
-    maybe (Left "Falta la directiva NODES") Right (psNodeCount st)
+    maybe (Left (MissingDirective DirNodes)) Right (psNodeCount st)
   when (null (psEdges st)) $
-    Left "Falta la seccion EDGES o no hay aristas definidas"
+    Left NoEdges
   source <-
-    maybe (Left "Falta la directiva SOURCE") Right (psSource st)
+    maybe (Left (MissingDirective DirSource)) Right (psSource st)
   let graph = buildGraph nodeTotal (psEdges st)
-  validateNode graph "SOURCE" source
-  traverse_ (validateNode graph "TARGET") (psTarget st)
+  validateNode graph CtxSource source
+  traverse_ (validateNode graph CtxTarget) (psTarget st)
   mapM_ (validateEdge graph) (psEdges st)
   when (psWeighted st && any (== Nothing) (map edgeWeight (psEdges st))) $
-    Left "Modo WEIGHTED requiere peso en todas las aristas"
+    Left WeightedModeMismatch
   pure
     GraphFile
       { gfGraph = graph,
@@ -154,42 +170,36 @@ finalize st = do
         gfAlgorithm = maybe BFS id (psAlgorithm st)
       }
 
-validateNode :: Graph -> String -> NodeId -> Either String ()
-validateNode graph label nodeId
+validateNode :: Graph -> ParseContext -> NodeId -> Either ParseError ()
+validateNode graph ctx nodeId
   | isValidNode graph nodeId = Right ()
   | otherwise =
-      Left $
-        label
-          ++ " "
-          ++ show nodeId
-          ++ " fuera de rango [0, "
-          ++ show (nodeCount graph - 1)
-          ++ "]"
+      Left (NodeOutOfRange ctx nodeId (nodeCount graph - 1))
 
-validateEdge :: Graph -> Edge -> Either String ()
+validateEdge :: Graph -> Edge -> Either ParseError ()
 validateEdge graph edge = do
-  validateNode graph "arista (origen)" (edgeFrom edge)
-  validateNode graph "arista (destino)" (edgeTo edge)
+  validateNode graph CtxEdgeFrom (edgeFrom edge)
+  validateNode graph CtxEdgeTo (edgeTo edge)
 
-parsePositive :: String -> String -> Either String Int
-parsePositive label raw =
+parsePositive :: ParseContext -> String -> Either ParseError Int
+parsePositive ctx raw =
   case reads raw of
     [(n, "")] | n > 0 -> Right n
-    _ -> Left $ label ++ " debe ser un entero positivo: " ++ raw
+    _ -> Left (InvalidPositiveInteger ctx raw)
 
-parseNodeId :: String -> String -> Either String NodeId
-parseNodeId label raw =
+parseNodeId :: ParseContext -> String -> Either ParseError NodeId
+parseNodeId ctx raw =
   case reads raw of
     [(n, "")] | n >= 0 -> Right n
-    _ -> Left $ label ++ " debe ser un entero >= 0: " ++ raw
+    _ -> Left (InvalidNodeId ctx raw)
 
-parseAlgorithm :: String -> Either String Algorithm
+parseAlgorithm :: String -> Either ParseError Algorithm
 parseAlgorithm raw =
   case map toUpper raw of
     "BFS" -> Right BFS
     "DFS" -> Right DFS
     "DIJKSTRA" -> Right Dijkstra
-    _ -> Left $ "Algoritmo desconocido: " ++ raw ++ " (use BFS, DFS o DIJKSTRA)"
+    _ -> Left (UnknownAlgorithm raw)
 
 adjSummary :: Graph -> String
 adjSummary graph =
