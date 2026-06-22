@@ -28,36 +28,36 @@ run opts = do
 
   putStrLn "Graphaskell"
   putStrLn ""
-  putStrLn $ "  Grafo:        " ++ optGraphPath opts
-  putStrLn $ "  Origen:       " ++ show (optSource opts)
+  putStrLn $ "  Graph:      " ++ optGraphPath opts
+  putStrLn $ "  Source:     " ++ show (optSource opts)
   putStrLn $
-    "  Destino:      "
+    "  Target:     "
       ++ maybe "—" show (optTarget opts)
-  putStrLn $ "  Algoritmo:    " ++ show (optAlgorithm opts)
+  putStrLn $ "  Algorithm:  " ++ show (optAlgorithm opts)
   putStrLn $
-    "  Threads:      "
+    "  Threads:    "
       ++ show (optThreads opts)
       ++ " / "
       ++ show (optMaxCapabilities opts)
-      ++ " capacidades"
+      ++ " capabilities"
   putStrLn $
-    "  Modo:         "
-      ++ if optSequential opts then "secuencial" else "concurrente (async + STM)"
+    "  Mode:       "
+      ++ if optSequential opts then "sequential" else "concurrent (async + STM)"
   putStrLn $
-    "  Verbose:      "
-      ++ if optVerbose opts then "si" else "no"
+    "  Verbose:    "
+      ++ if optVerbose opts then "yes" else "no"
   putStrLn ""
 
   graphResult <- loadGraphFile (optGraphPath opts)
   case graphResult of
     Left err ->
-      die $ "Error al cargar el grafo: " ++ displayLoadGraphError err
+      die $ "Error loading graph: " ++ displayLoadGraphError err
     Right graph -> do
       case validateRunNodes graph (optSource opts) (optTarget opts) of
         Left parseError ->
-          die $ "Error en origen/destino: " ++ displayParseError parseError
+          die $ "Error in source/target: " ++ displayParseError parseError
         Right () -> do
-          putStrLn "Grafo cargado:"
+          putStrLn "Graph loaded:"
           putStrLn ""
           putStrLn (describeGraph graph)
           putStrLn ""
@@ -81,8 +81,8 @@ run opts = do
 
           putStrLn
             ( if optSequential opts
-                then "Ejecucion Pregel (secuencial):"
-                else "Ejecucion Pregel (async + STM):"
+                then "Pregel execution (sequential):"
+                else "Pregel execution (async + STM):"
             )
           putStrLn ""
           putStrLn (describeRun (optVerbose opts) pregelRun)

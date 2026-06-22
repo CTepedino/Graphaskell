@@ -27,7 +27,7 @@ parseNodeIdOpt :: String -> Either String NodeId
 parseNodeIdOpt raw =
   case reads raw of
     [(n, "")] | n >= 0 -> Right n
-    _ -> Left ("debe ser un entero >= 0: " ++ raw)
+    _ -> Left ("must be an integer >= 0: " ++ raw)
 
 parseAlgorithmOpt :: String -> Either String Algorithm
 parseAlgorithmOpt raw =
@@ -43,7 +43,7 @@ parseAlgorithmOpt raw =
     "LP" -> Right LabelPropagation
     _ ->
       Left
-        ( "algoritmo desconocido: "
+        ( "unknown algorithm: "
             ++ raw
             ++ " (use BFS, BELLMANFORD, PAGERANK, CC, LP)"
         )
@@ -63,23 +63,23 @@ rawParser =
     <$> strOption
       ( long "graph"
           <> short 'g'
-          <> metavar "GRAFO"
-          <> help "Path al archivo de grafo (solo definicion del grafo)"
+          <> metavar "GRAPH"
+          <> help "Path to the graph file (graph definition only)"
       )
     <*> option
       (eitherReader parseNodeIdOpt)
       ( long "source"
           <> short 's'
-          <> metavar "NODO"
-          <> help "Vertice origen de la busqueda"
+          <> metavar "NODE"
+          <> help "Source vertex"
       )
     <*> optional
       ( option
           (eitherReader parseNodeIdOpt)
           ( long "target"
               <> short 't'
-              <> metavar "NODO"
-              <> help "Vertice destino (requerido para calcular un camino)"
+              <> metavar "NODE"
+              <> help "Target vertex (required for path algorithms)"
           )
       )
     <*> option
@@ -87,7 +87,7 @@ rawParser =
       ( long "algorithm"
           <> short 'a'
           <> metavar "ALG"
-          <> help "Algoritmo: BFS, BELLMANFORD, PAGERANK, CC, LP"
+          <> help "Algorithm: BFS, BELLMANFORD, PAGERANK, CC, LP"
       )
     <*> optional
       ( option
@@ -95,18 +95,18 @@ rawParser =
           ( long "threads"
               <> metavar "N"
               <> help
-                "Cantidad de threads concurrentes \
-                \ (default: todas las capacidades del runtime, ver +RTS -N)"
+                "Number of concurrent threads \
+                \ (default: all RTS capabilities, see +RTS -N)"
           )
       )
     <*> switch
       ( long "verbose"
           <> short 'v'
-          <> help "Trazas detalladas por superstep (mensajes y actualizaciones)"
+          <> help "Detailed per-superstep traces (messages and updates)"
       )
     <*> switch
       ( long "sequential"
-          <> help "Ejecutar el motor Pregel en modo secuencial (sin async/STM)"
+          <> help "Run the Pregel engine sequentially (no async/STM)"
       )
 
 parseOptions :: IO Options
@@ -118,20 +118,20 @@ parseOptions = do
           (helper <*> rawParser)
           ( fullDesc
               <> progDesc
-                "Explorador de caminos en grafos (modelo Pregel). \
-                \ El archivo define el grafo; origen, destino y algoritmo \
-                \ se indican por linea de comandos."
+                "Graph path explorer (Pregel BSP model). \
+                \ The graph file defines topology; source, target, and algorithm \
+                \ are specified via CLI flags."
           )
       )
   let threads = maybe maxThreads id mThreads
   when (threads < 1) $
-    die "Error: --threads debe ser al menos 1"
+    die "Error: --threads must be at least 1"
   when (threads > maxThreads) $
     die $
       unwords
-        [ "Error: --threads no puede superar las capacidades del runtime",
+        [ "Error: --threads cannot exceed RTS capabilities",
           "(" ++ show maxThreads ++ ").",
-          "Usá +RTS -N" ++ show threads ++ " -RTS para aumentarlas."
+          "Use +RTS -N" ++ show threads ++ " -RTS to increase them."
         ]
   pure
     Options

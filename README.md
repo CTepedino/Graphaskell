@@ -1,30 +1,30 @@
 # Graphaskell
 
-Explorador de grafos con motor estilo **Pregel (BSP)** en Haskell: algoritmos con `StateT`/`Writer`, ejecución concurrente con `async` + STM.
+Graph explorer with a **Pregel (BSP)** engine in Haskell: algorithms use `StateT`/`Writer`, concurrent execution uses `async` + STM.
 
-## Requisitos
+## Requirements
 
 - GHC >= 9.0
 - Cabal >= 3.0
 
-## Instalación
+## Installation
 
 ```bash
 cabal update
 cabal build
 ```
 
-## Uso
+## Usage
 
-El archivo de grafo define solo la topología (`NODES`, `EDGES`, opcionalmente `WEIGHTED`). Origen, destino y algoritmo se indican por línea de comandos.
+The graph file defines topology only (`NODES`, `EDGES`, optionally `WEIGHTED`). Source, target, and algorithm are specified via CLI flags.
 
-### BFS (camino mínimo en saltos)
+### BFS (minimum-hop path)
 
 ```bash
 cabal run graphaskell -- -g examples/grafo-simple.txt -s 0 -t 4 -a BFS
 ```
 
-### Bellman-Ford (camino mínimo ponderado)
+### Bellman-Ford (minimum weighted path)
 
 ```bash
 cabal run graphaskell -- -g examples/grafo-dirigido.txt -s 0 -t 3 -a BELLMANFORD
@@ -36,7 +36,7 @@ cabal run graphaskell -- -g examples/grafo-dirigido.txt -s 0 -t 3 -a BELLMANFORD
 cabal run graphaskell -- -g examples/grafo-pagerank.txt -s 0 -a PAGERANK
 ```
 
-### Componentes conexas
+### Connected components
 
 ```bash
 cabal run graphaskell -- -g examples/grafo-simple.txt -s 0 -a CC
@@ -48,17 +48,17 @@ cabal run graphaskell -- -g examples/grafo-simple.txt -s 0 -a CC
 cabal run graphaskell -- -g examples/grafo-simple.txt -s 0 -a LP
 ```
 
-## Opciones
+## Options
 
-| Flag | Descripción |
+| Flag | Description |
 |------|-------------|
-| `-g`, `--graph` | Ruta al archivo de grafo |
-| `-s`, `--source` | Nodo origen |
-| `-t`, `--target` | Nodo destino (requerido para BFS y Bellman-Ford) |
+| `-g`, `--graph` | Path to the graph file |
+| `-s`, `--source` | Source node |
+| `-t`, `--target` | Target node (required for BFS and Bellman-Ford) |
 | `-a`, `--algorithm` | `BFS`, `BELLMANFORD`, `PAGERANK`, `CC`, `LP` |
-| `--threads` | Cantidad de threads (default: capacidades RTS) |
-| `-v`, `--verbose` | Trazas detalladas por superstep |
-| `--sequential` | Motor secuencial (sin async/STM, útil para depurar) |
+| `--threads` | Number of threads (default: RTS capabilities) |
+| `-v`, `--verbose` | Detailed per-superstep traces |
+| `--sequential` | Sequential engine (no async/STM, useful for debugging) |
 
 ## Tests
 
@@ -66,7 +66,7 @@ cabal run graphaskell -- -g examples/grafo-simple.txt -s 0 -a LP
 cabal test
 ```
 
-## Formato del archivo de grafo
+## Graph file format
 
 ```
 NODES 5
@@ -78,7 +78,7 @@ EDGES
 3 4
 ```
 
-Para grafos ponderados, agregar la directiva `WEIGHTED` y un peso por arista:
+For weighted graphs, add the `WEIGHTED` directive and a weight per edge:
 
 ```
 NODES 4

@@ -19,12 +19,12 @@ describeRun verbose run =
 
 superstepSummary :: PregelRun -> [String]
 superstepSummary run =
-  [ "Convergio en " ++ show (prSupersteps run) ++ " supersteps.",
+  [ "Converged in " ++ show (prSupersteps run) ++ " supersteps.",
     ""
   ]
     ++ if prMaxStepsReached run
       then
-        [ "Advertencia: se alcanzo el limite maximo de supersteps.",
+        [ "Warning: maximum superstep limit reached.",
           ""
         ]
       else []
@@ -43,9 +43,9 @@ describeSuperstep verbose stepLog =
         ++ show (sslStep stepLog)
         ++ ": "
         ++ show (sslActiveVertices stepLog)
-        ++ " vertices activos, "
+        ++ " active vertices, "
         ++ show (sslMessagesSent stepLog)
-        ++ " mensajes emitidos"
+        ++ " messages sent"
 
 sortedEntries :: SuperstepLog -> [LogEntry]
 sortedEntries stepLog =
@@ -91,22 +91,22 @@ describeLogEntry :: LogEntry -> String
 describeLogEntry entry =
   case entry of
     VertexUpdated nodeId distance ->
-      "vertice "
+      "vertex "
         ++ show nodeId
-        ++ " actualizado: distancia "
+        ++ " updated: distance "
         ++ show distance
     VertexLabelUpdated nodeId label ->
-      "vertice "
+      "vertex "
         ++ show nodeId
-        ++ " actualizado: etiqueta "
+        ++ " updated: label "
         ++ show label
     VertexRankUpdated nodeId rank ->
-      "vertice "
+      "vertex "
         ++ show nodeId
-        ++ " actualizado: rank "
+        ++ " updated: rank "
         ++ show rank
     MessageSent from to message ->
-      "vertice "
+      "vertex "
         ++ show from
         ++ " -> "
         ++ show to
@@ -130,24 +130,24 @@ describeResult result =
   case result of
     PathFound path dist ->
       unlines
-        [ "Resultado: camino encontrado",
-          "  Distancia: " ++ show dist,
-          "  Camino:    " ++ show path
+        [ "Result: path found",
+          "  Distance: " ++ show dist,
+          "  Path:     " ++ show path
         ]
     NoPath ->
-      "Resultado: no hay camino entre origen y destino"
+      "Result: no path between source and target"
     ComponentFound label members ->
       unlines
-        [ "Resultado: componente conexa",
-          "  Etiqueta:  " ++ show label,
-          "  Nodos:     " ++ show members
+        [ "Result: connected component",
+          "  Label:  " ++ show label,
+          "  Nodes:  " ++ show members
         ]
     Rankings pairs ->
       unlines
-        ( "Resultado: PageRank"
+        ( "Result: PageRank"
             : map
               ( \(nodeId, rank) ->
-                  "  nodo "
+                  "  node "
                     ++ show nodeId
                     ++ ": "
                     ++ show rank
@@ -156,23 +156,23 @@ describeResult result =
         )
     NodeLabels pairs ->
       unlines
-        ( "Resultado: propagacion de etiquetas"
+        ( "Result: label propagation"
             : map
               ( \(nodeId, label) ->
-                  "  nodo "
+                  "  node "
                     ++ show nodeId
-                    ++ " -> etiqueta "
+                    ++ " -> label "
                     ++ show label
               )
               pairs
         )
     InputError err ->
-      "Resultado: entrada invalida — " ++ displayInputError err
+      "Result: invalid input — " ++ displayInputError err
 
 displayInputError :: InputError -> String
 displayInputError err =
   case err of
     MissingTarget ->
-      "se requiere --target para calcular un camino"
+      "--target is required to compute a path"
     TargetNodeMissing nodeId ->
-      "nodo " ++ show nodeId ++ " inexistente"
+      "node " ++ show nodeId ++ " does not exist"

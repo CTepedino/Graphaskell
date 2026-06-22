@@ -39,34 +39,34 @@ displayParseError :: ParseError -> String
 displayParseError err =
   case err of
     MissingDirective DirNodes ->
-      "Falta la directiva NODES"
+      "Missing NODES directive"
     NoEdges ->
-      "Falta la seccion EDGES o no hay aristas definidas"
+      "Missing EDGES section or no edges defined"
     UnknownLine line ->
-      "Linea desconocida o fuera de la seccion EDGES: " ++ line
+      "Unknown line or outside EDGES section: " ++ line
     LegacyCliDirective name ->
       name
-        ++ " ya no se define en el archivo; "
-        ++ "use la linea de comandos (--source, --target o --algorithm)"
+        ++ " is no longer defined in the graph file; "
+        ++ "use CLI flags (--source, --target, or --algorithm)"
     InvalidPositiveInteger ctx raw ->
-      showContext ctx ++ " debe ser un entero positivo: " ++ raw
+      showContext ctx ++ " must be a positive integer: " ++ raw
     InvalidNodeId ctx raw ->
-      showContext ctx ++ " debe ser un entero >= 0: " ++ raw
+      showContext ctx ++ " must be an integer >= 0: " ++ raw
     NodeOutOfRange ctx nodeId maxNode ->
       showContext ctx
         ++ " "
         ++ show nodeId
-        ++ " fuera de rango [0, "
+        ++ " out of range [0, "
         ++ show maxNode
         ++ "]"
     WeightOnUnweightedGraph line ->
-      "Arista con peso encontrada pero falta la directiva WEIGHTED: " ++ line
+      "Weighted edge found but WEIGHTED directive is missing: " ++ line
     InvalidUnweightedEdge ->
-      "Cada arista debe tener formato: <origen> <destino>"
+      "Each edge must have the format: <from> <to>"
     InvalidWeightedEdge ->
-      "En modo WEIGHTED cada arista debe tener formato: <origen> <destino> <peso>"
+      "In WEIGHTED mode each edge must have the format: <from> <to> <weight>"
     WeightedModeMismatch ->
-      "Modo WEIGHTED requiere peso en todas las aristas"
+      "WEIGHTED mode requires a weight on every edge"
 
 showContext :: ParseContext -> String
 showContext ctx =
@@ -74,6 +74,6 @@ showContext ctx =
     CtxNodes -> "NODES"
     CtxSource -> "SOURCE"
     CtxTarget -> "TARGET"
-    CtxEdgeFrom -> "arista (origen)"
-    CtxEdgeTo -> "arista (destino)"
-    CtxEdgeWeight -> "arista (peso)"
+    CtxEdgeFrom -> "edge (from)"
+    CtxEdgeTo -> "edge (to)"
+    CtxEdgeWeight -> "edge (weight)"

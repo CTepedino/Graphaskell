@@ -174,7 +174,7 @@ mergeWorkerResults states results =
     states
     results
 
--- | Motor secuencial (referencia y pruebas)
+-- | Sequential engine (reference and tests)
 
 loop ::
   VertexContexts ->

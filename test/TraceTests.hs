@@ -9,18 +9,18 @@ import Test.HUnit
 traceTests :: Test
 traceTests =
   TestList
-    [ "describeRun sin verbose omite detalle de vertices" ~: do
+    [ "describeRun without verbose omits vertex detail" ~: do
         let output = describeRun False sampleRun
-        assertBool "no muestra actualizaciones de vertice" $
-          not ("vertice 0 actualizado" `isInfixOf` output),
-      "describeRun verbose incluye detalle de vertices" ~: do
+        assertBool "does not show vertex updates" $
+          not ("vertex 0 updated" `isInfixOf` output),
+      "describeRun with verbose includes vertex detail" ~: do
         let output = describeRun True sampleRun
-        assertBool "muestra actualizaciones de vertice" $
-          "vertice 0 actualizado" `isInfixOf` output,
-      "describeRun advierte cuando se alcanza el limite de supersteps" ~: do
+        assertBool "shows vertex updates" $
+          "vertex 0 updated" `isInfixOf` output,
+      "describeRun warns when superstep limit is reached" ~: do
         let output = describeRun False maxStepsRun
-        assertBool "muestra advertencia de limite" $
-          "limite maximo de supersteps" `isInfixOf` output
+        assertBool "shows limit warning" $
+          "maximum superstep limit reached" `isInfixOf` output
     ]
 
 sampleRun :: PregelRun

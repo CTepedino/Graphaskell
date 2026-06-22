@@ -10,4 +10,4 @@ main = do
   counts <- runTestTT (TestList [parserTests, algorithmTests, traceTests])
   if failures counts + errors counts == 0
     then pure ()
-    else fail "Tests fallidos"
+    else fail "Tests failed"

@@ -13,6 +13,6 @@ displayAlgorithmError :: AlgorithmError -> String
 displayAlgorithmError err =
   case err of
     MissingPathTarget ->
-      "se requiere --target para calcular un camino (BFS y Bellman-Ford)"
+      "--target is required to compute a path (BFS and Bellman-Ford)"
     WeightedGraphRequired ->
-      "Bellman-Ford requiere aristas con peso (directiva WEIGHTED en el archivo)"
+      "Bellman-Ford requires weighted edges (WEIGHTED directive in the graph file)"

@@ -24,7 +24,7 @@ displayLoadGraphError :: LoadGraphError -> String
 displayLoadGraphError err =
   case err of
     LoadReadError path message ->
-      "No se pudo leer el archivo "
+      "Could not read file "
         ++ path
         ++ ": "
         ++ message
@@ -50,8 +50,8 @@ parseGraphFile =
 describeGraph :: Graph -> String
 describeGraph graph =
   unlines
-    [ "  Nodos:      " ++ show (nodeCount graph),
-      "  Aristas:    " ++ show (length (graphEdges graph)),
+    [ "  Nodes:      " ++ show (nodeCount graph),
+      "  Edges:      " ++ show (length (graphEdges graph)),
       "",
       adjSummary graph
     ]
@@ -81,11 +81,7 @@ prepareLines :: String -> [String]
 prepareLines =
   filter (not . null)
     . map trim
-    . map stripComment
     . lines
-
-stripComment :: String -> String
-stripComment = takeWhile (/= '#')
 
 trim :: String -> String
 trim = reverse . dropWhile isSpace . reverse . dropWhile isSpace
@@ -171,7 +167,7 @@ parseNodeId ctx raw =
 adjSummary :: Graph -> String
 adjSummary graph =
   unlines
-    ( "  Adyacencia:"
+    ( "  Adjacency:"
         : map formatAdj (graphNodes graph)
     )
   where
