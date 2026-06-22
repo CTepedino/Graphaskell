@@ -3,21 +3,62 @@ name:          graphaskell
 version:       0.1.0.0
 build-type:    Simple
 
-common warnings
+common exe-warnings
     ghc-options: -Wall -threaded -rtsopts -with-rtsopts=-N
 
-executable graphaskell
-    import:           warnings
-    main-is:          Main.hs
-    other-modules:
-        Cli.Options,
-        Graph.Parser,
-        Graph.Types
+common lib-deps
     build-depends:
         base,
         async,
         containers,
+        mtl,
         optparse-applicative,
         stm
+
+library
+    import:           lib-deps
+    ghc-options:      -Wall
+    exposed-modules:
+        Algorithm.BFS,
+        Algorithm.Common,
+        Algorithm.DFS,
+        Algorithm.Dijkstra,
+        Algorithm.Error,
+        Algorithm.Spec,
+        Algorithm.Types,
+        Cli.Options,
+        Graph.ParseError,
+        Graph.Parser,
+        Graph.Types,
+        Output.Trace,
+        Pregel.Engine,
+        Pregel.Env,
+        Pregel.Pool,
+        Pregel.Types
     default-language: GHC2021
-    hs-source-dirs:   app, src
+    hs-source-dirs:   src
+
+executable graphaskell
+    import:           exe-warnings
+    main-is:          Main.hs
+    build-depends:
+        base,
+        graphaskell,
+        optparse-applicative
+    default-language: GHC2021
+    hs-source-dirs:   app
+
+test-suite graphaskell-test
+    import:           exe-warnings
+    type:             exitcode-stdio-1.0
+    main-is:          Main.hs
+    other-modules:
+        ParserTests,
+        AlgorithmTests,
+        Fixtures
+    build-depends:
+        base,
+        HUnit,
+        graphaskell
+    default-language: GHC2021
+    hs-source-dirs:   test
