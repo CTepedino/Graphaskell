@@ -53,7 +53,8 @@ mkRunConfig graph source target algorithm threads =
        in max 1 (n * n)
 
 runPregel :: RunConfig -> AlgorithmSpec -> IO PregelRun
-runPregel cfg spec = runConcurrent cfg spec
+runPregel = runConcurrent
+
 
 runSequential :: RunConfig -> AlgorithmSpec -> PregelRun
 runSequential cfg spec =
@@ -166,15 +167,19 @@ mergeWorkerResults ::
   VertexStates ->
   [VertexWorkerResult] ->
   VertexStates
-mergeWorkerResults states results =
-  foldr
+mergeWorkerResults = foldr
     ( \result acc ->
         Map.insert (vwrNodeId result) (vwrState result) acc
     )
-    states
-    results
 
 -- | Sequential engine (reference and tests)
+
+data LoopInput = LoopInput
+  { liStep :: Int,
+    liStates :: VertexStates,
+    liQueues :: MessageQueues
+  }
+  deriving (Eq, Show)
 
 loop ::
   VertexContexts ->
@@ -184,15 +189,42 @@ loop ::
   VertexStates ->
   MessageQueues ->
   (VertexStates, [SuperstepLog], Int, Bool)
-loop contexts spec cfg step states queues
-  | step >= rcMaxSteps cfg =
-      (states, [], step, True)
-  | null (activeVertices queues) =
-      (states, [], step, False)
+loop contexts spec cfg step states queues =
+  let initial = LoopInput step states queues
+      (logs, finalInput) = unfoldLoop (superstepOnce contexts spec cfg) initial
+      maxStepsReached = liStep finalInput >= rcMaxSteps cfg
+   in (liStates finalInput, logs, liStep finalInput, maxStepsReached)
+
+
+unfoldLoop :: (s -> Maybe (a, s)) -> s -> ([a], s)
+unfoldLoop stepFn seed = go seed []
+  where
+    go state acc =
+      case stepFn state of
+        Nothing -> (reverse acc, state)
+        Just (value, nextState) -> go nextState (value : acc)
+
+superstepOnce ::
+  VertexContexts ->
+  AlgorithmSpec ->
+  RunConfig ->
+  LoopInput ->
+  Maybe (SuperstepLog, LoopInput)
+superstepOnce contexts spec cfg input
+  | liStep input >= rcMaxSteps cfg =
+      Nothing
+  | null (activeVertices (liQueues input)) =
+      Nothing
   | otherwise =
-      let actives = activeVertices queues
+      let step = liStep input
+          actives = activeVertices (liQueues input)
           (newStates, outgoing, entries) =
-            processActive contexts spec actives states queues
+            processActive
+              contexts
+              spec
+              actives
+              (liStates input)
+              (liQueues input)
           logEntry =
             SuperstepLog
               { sslStep = step,
@@ -200,13 +232,13 @@ loop contexts spec cfg step states queues
                 sslMessagesSent = length outgoing,
                 sslEntries = entries
               }
-       in if null outgoing
-            then (newStates, [logEntry], step + 1, False)
-            else
-              let nextQueues = enqueueAll Map.empty outgoing
-                  (finalStates, restLogs, finalStep, maxStepsReached) =
-                    loop contexts spec cfg (step + 1) newStates nextQueues
-               in (finalStates, logEntry : restLogs, finalStep, maxStepsReached)
+          nextInput =
+            LoopInput
+              { liStep = step + 1,
+                liStates = newStates,
+                liQueues = enqueueAll Map.empty outgoing
+              }
+       in Just (logEntry, nextInput)
 
 processActive ::
   VertexContexts ->
@@ -216,10 +248,15 @@ processActive ::
   MessageQueues ->
   (VertexStates, [(NodeId, Message)], [LogEntry])
 processActive contexts spec actives states queues =
-  foldr
-    (processVertex contexts spec states queues)
-    (states, [], [])
-    actives
+  let (newStates, outgoingChunks, entryChunks) =
+        foldr
+          (processVertex contexts spec states queues)
+          (states, [], [])
+          actives
+   in ( newStates,
+        concat (reverse outgoingChunks),
+        concat (reverse entryChunks)
+      )
 
 processVertex ::
   VertexContexts ->
@@ -227,8 +264,8 @@ processVertex ::
   VertexStates ->
   MessageQueues ->
   NodeId ->
-  (VertexStates, [(NodeId, Message)], [LogEntry]) ->
-  (VertexStates, [(NodeId, Message)], [LogEntry])
+  (VertexStates, [[(NodeId, Message)]], [[LogEntry]]) ->
+  (VertexStates, [[(NodeId, Message)]], [[LogEntry]])
 processVertex contexts spec currentStates queues nodeId (accStates, outgoing, entries) =
   let state = Map.findWithDefault initialVertexState nodeId currentStates
       messages = Map.findWithDefault [] nodeId queues
@@ -236,8 +273,8 @@ processVertex contexts spec currentStates queues nodeId (accStates, outgoing, en
       VertexStepResult {vsrState = newState, vsrOutgoing = sent, vsrLogs = logs} =
         specVertexUpdate spec vtx state messages
    in ( Map.insert nodeId newState accStates,
-        outgoing ++ sent,
-        entries ++ logs
+        sent : outgoing,
+        logs : entries
       )
 
 activeVertices :: MessageQueues -> [NodeId]

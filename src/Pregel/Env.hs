@@ -9,7 +9,9 @@ where
 
 import Control.Concurrent.STM
 import Control.Monad (foldM, forM_)
+import Data.Foldable (toList)
 import qualified Data.Map.Strict as Map
+import qualified Data.Sequence as Seq
 import Graph.Types
 import Pregel.Types
 
@@ -29,15 +31,15 @@ initEnv graph = do
   pure PregelEnv {peQueues = Map.fromList queuePairs}
 
 flushQueue :: TQueue Message -> STM [Message]
-flushQueue queue = go []
+flushQueue queue = go Seq.empty
   where
     go acc = do
       empty <- isEmptyTQueue queue
       if empty
-        then pure (reverse acc)
+        then pure (toList acc)
         else do
           message <- readTQueue queue
-          go (message : acc)
+          go (acc Seq.|> message)
 
 deliverAll :: PregelEnv -> [(NodeId, Message)] -> IO ()
 deliverAll env outgoing =

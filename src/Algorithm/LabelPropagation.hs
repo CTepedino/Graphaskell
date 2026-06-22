@@ -3,14 +3,19 @@ module Algorithm.LabelPropagation
   )
 where
 
-import Algorithm.Common (UpdateM, extractLabelResult, runVertexUpdate)
+import Algorithm.Common
+  ( VertexUpdate (..),
+    extractLabelResult,
+    labelBootstrap,
+    runVertexUpdate,
+    tryRelabel,
+    emitLabelMessages,
+  )
 import Algorithm.Types (AlgorithmSpec (..))
-import Control.Monad.State.Strict (get, put)
-import Control.Monad.Writer.Strict (tell)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import Graph.Types
-import Graph.VertexContext (VertexContext (..), outNeighbors)
+import Graph.VertexContext (VertexContext (..))
 import Pregel.Types
 
 labelPropagationSpec :: AlgorithmSpec
@@ -27,12 +32,7 @@ initState nodeId _cfg =
   initialVertexState {vsLabel = Just nodeId}
 
 bootstrap :: RunConfig -> [(NodeId, Message)]
-bootstrap cfg =
-  let graph = rcGraph cfg
-   in [ (to, MsgLabel nodeId)
-        | nodeId <- graphNodes graph,
-          (to, _) <- neighbors graph nodeId
-      ]
+bootstrap = labelBootstrap
 
 vertexUpdate ::
   VertexContext ->
@@ -40,20 +40,13 @@ vertexUpdate ::
   [Message] ->
   VertexStepResult
 vertexUpdate vtx state messages =
-  let nodeId = vcNodeId vtx
-   in runVertexUpdate vtx state messages (lpaUpdate nodeId messages) emitOutgoing
+  runVertexUpdate vtx state messages (lpaUpdate (vcNodeId vtx)) emitLabelMessages
 
-lpaUpdate :: NodeId -> [Message] -> UpdateM Bool
-lpaUpdate nodeId messages = do
-  state <- get
+lpaUpdate :: NodeId -> [Message] -> VertexState -> VertexUpdate
+lpaUpdate nodeId messages state =
   let currentLabel = maybe nodeId id (vsLabel state)
       newLabel = majorityLabel currentLabel messages
-  if newLabel == currentLabel
-    then pure False
-    else do
-      tell [VertexLabelUpdated nodeId newLabel]
-      put state {vsLabel = Just newLabel}
-      pure True
+   in tryRelabel nodeId newLabel state
 
 majorityLabel :: NodeId -> [Message] -> NodeId
 majorityLabel self messages =
@@ -69,12 +62,3 @@ majorityLabel self messages =
       winners =
         Map.keys (Map.filter (== maxVotes) tallies)
    in minimum winners
-
-emitOutgoing :: VertexContext -> VertexState -> [(NodeId, Message)]
-emitOutgoing vtx state =
-  case vsLabel state of
-    Nothing -> []
-    Just label ->
-      [ (to, MsgLabel label)
-        | to <- outNeighbors vtx
-      ]

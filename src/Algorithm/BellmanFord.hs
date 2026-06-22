@@ -3,13 +3,9 @@ module Algorithm.BellmanFord
   )
 where
 
-import Algorithm.Common (UpdateM, extractPathResult, runVertexUpdate)
+import Algorithm.Common (VertexUpdate, extractPathResult, runVertexUpdate, tryImproveDistance)
 import Algorithm.Types (AlgorithmSpec (..))
-import Control.Monad.State.Strict (get, put)
-import Control.Monad.Writer.Strict (tell)
-import Data.List (minimumBy)
 import Data.Maybe (mapMaybe)
-import Data.Ord (comparing)
 import Graph.Types
 import Graph.VertexContext
   ( VertexContext (..),
@@ -46,36 +42,17 @@ vertexUpdate ::
   [Message] ->
   VertexStepResult
 vertexUpdate vtx state messages =
-  runVertexUpdate vtx state messages (bellmanFordUpdate vtx messages) emitOutgoing
+  runVertexUpdate vtx state messages (bellmanFordUpdate vtx) emitOutgoing
 
-bellmanFordUpdate :: VertexContext -> [Message] -> UpdateM Bool
-bellmanFordUpdate vtx messages = do
-  state <- get
-  let nodeId = vcNodeId vtx
-      candidates =
-        mapMaybe
-          (candidate vtx)
-          messages
-  case candidates of
-    [] -> pure False
-    _ -> do
-      let (newDist, predecessor) =
-            minimumBy (comparing fst) candidates
-      case vsDistance state of
-        Just current | newDist >= current -> pure False
-        _ -> do
-          tell [VertexUpdated nodeId newDist]
-          put
-            state
-              { vsDistance = Just newDist,
-                vsPredecessor = Just predecessor
-              }
-          pure True
+bellmanFordUpdate :: VertexContext -> [Message] -> VertexState -> VertexUpdate
+bellmanFordUpdate vtx messages = tryImproveDistance
+    (vcNodeId vtx)
+    (mapMaybe (weightedCandidate vtx) messages)
 
-candidate :: VertexContext -> Message -> Maybe (Int, NodeId)
-candidate _ (MsgLabel _) = Nothing
-candidate _ (MsgRank _) = Nothing
-candidate vtx (MsgDistance from dist) = do
+weightedCandidate :: VertexContext -> Message -> Maybe (Int, NodeId)
+weightedCandidate _ (MsgLabel _) = Nothing
+weightedCandidate _ (MsgRank _) = Nothing
+weightedCandidate vtx (MsgDistance from dist) = do
   weight <- lookupIncomingWeight vtx from
   Just (dist + weight, from)
 

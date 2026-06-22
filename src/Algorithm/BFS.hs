@@ -3,12 +3,14 @@ module Algorithm.BFS
   )
 where
 
-import Algorithm.Common (UpdateM, extractPathResult, runVertexUpdate)
+import Algorithm.Common
+  ( VertexUpdate (..),
+    extractPathResult,
+    bfsCandidates,
+    runVertexUpdate,
+    tryImproveDistance,
+  )
 import Algorithm.Types (AlgorithmSpec (..))
-import Control.Monad.State.Strict (get, put)
-import Control.Monad.Writer.Strict (tell)
-import Data.List (minimumBy)
-import Data.Ord (comparing)
 import Graph.Types
 import Graph.VertexContext (VertexContext (..), outNeighbors)
 import Pregel.Types
@@ -41,31 +43,10 @@ vertexUpdate ::
   [Message] ->
   VertexStepResult
 vertexUpdate vtx state messages =
-  let nodeId = vcNodeId vtx
-   in runVertexUpdate vtx state messages (bfsUpdate nodeId messages) emitOutgoing
+  runVertexUpdate vtx state messages (bfsUpdate (vcNodeId vtx)) emitOutgoing
 
-bfsUpdate :: NodeId -> [Message] -> UpdateM Bool
-bfsUpdate nodeId messages = do
-  state <- get
-  let candidates =
-        [ (dist + 1, from)
-          | MsgDistance from dist <- messages
-        ]
-  case candidates of
-    [] -> pure False
-    _ -> do
-      let (newDist, predecessor) =
-            minimumBy (comparing fst) candidates
-      case vsDistance state of
-        Just current | newDist >= current -> pure False
-        _ -> do
-          tell [VertexUpdated nodeId newDist]
-          put
-            state
-              { vsDistance = Just newDist,
-                vsPredecessor = Just predecessor
-              }
-          pure True
+bfsUpdate :: NodeId -> [Message] -> VertexState -> VertexUpdate
+bfsUpdate nodeId messages = tryImproveDistance nodeId (bfsCandidates messages)
 
 emitOutgoing :: VertexContext -> VertexState -> [(NodeId, Message)]
 emitOutgoing vtx state =

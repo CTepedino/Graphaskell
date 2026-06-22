@@ -44,9 +44,11 @@ library
 executable graphaskell
     import:           exe-warnings
     main-is:          Main.hs
+    other-modules:    AppError
     build-depends:
         base,
         graphaskell,
+        mtl,
         optparse-applicative
     default-language: GHC2021
     hs-source-dirs:   app

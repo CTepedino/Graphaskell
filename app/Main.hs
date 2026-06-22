@@ -1,12 +1,13 @@
 module Main where
 
-import Algorithm.Error (displayAlgorithmError)
 import Algorithm.Spec (resolveAlgorithm, validatePathTarget)
+import AppError (AppError (..), displayAppError)
 import Cli.Options (Options (..), parseOptions)
-import Graph.ParseError (displayParseError)
+import Control.Monad.Except (ExceptT (..), liftEither, runExceptT)
+import Control.Monad.Trans (lift)
+import Data.Bifunctor (first)
 import Graph.Parser
   ( describeGraph,
-    displayLoadGraphError,
     loadGraphFile,
     validateRunNodes,
   )
@@ -21,68 +22,78 @@ main = do
 
 run :: Options -> IO ()
 run opts = do
-  either
-    (\algorithmError -> die (displayAlgorithmError algorithmError))
-    (const (pure ()))
-    (validatePathTarget (optAlgorithm opts) (optTarget opts))
+  result <- runExceptT (execute opts)
+  case result of
+    Left err -> die (displayAppError err)
+    Right outputLines -> mapM_ putStrLn outputLines
 
-  putStrLn "Graphaskell"
-  putStrLn ""
-  putStrLn $ "  Graph:      " ++ optGraphPath opts
-  putStrLn $ "  Source:     " ++ show (optSource opts)
-  putStrLn $
-    "  Target:     "
-      ++ maybe "—" show (optTarget opts)
-  putStrLn $ "  Algorithm:  " ++ show (optAlgorithm opts)
-  putStrLn $
+execute :: Options -> ExceptT AppError IO [String]
+execute opts = do
+  liftEither $
+    first AppAlgorithm $
+      validatePathTarget (optAlgorithm opts) (optTarget opts)
+
+  graph <-
+    ExceptT ((first AppLoad) <$> loadGraphFile (optGraphPath opts))
+
+  liftEither $
+    first AppParse $
+      validateRunNodes graph (optSource opts) (optTarget opts)
+
+  spec <-
+    liftEither $
+      first AppAlgorithm $
+        resolveAlgorithm graph (optAlgorithm opts)
+
+  let cfg =
+        mkRunConfig
+          graph
+          (optSource opts)
+          (optTarget opts)
+          (optAlgorithm opts)
+          (optThreads opts)
+
+  pregelRun <-
+    lift $
+      if optSequential opts
+        then pure (runSequential cfg spec)
+        else runPregel cfg spec
+
+  pure $
+    configBanner opts
+      ++ [ "Graph loaded:",
+           "",
+           describeGraph graph,
+           "",
+           executionHeader opts,
+           "",
+           describeRun (optVerbose opts) pregelRun
+         ]
+
+configBanner :: Options -> [String]
+configBanner opts =
+  [ "Graphaskell",
+    "",
+    "  Graph:      " ++ optGraphPath opts,
+    "  Source:     " ++ show (optSource opts),
+    "  Target:     " ++ maybe "—" show (optTarget opts),
+    "  Algorithm:  " ++ show (optAlgorithm opts),
     "  Threads:    "
       ++ show (optThreads opts)
       ++ " / "
       ++ show (optMaxCapabilities opts)
-      ++ " capabilities"
-  putStrLn $
+      ++ " capabilities",
     "  Mode:       "
-      ++ if optSequential opts then "sequential" else "concurrent (async + STM)"
-  putStrLn $
+      ++ if optSequential opts
+        then "sequential"
+        else "concurrent (async + STM)",
     "  Verbose:    "
-      ++ if optVerbose opts then "yes" else "no"
-  putStrLn ""
+      ++ if optVerbose opts then "yes" else "no",
+    ""
+  ]
 
-  graphResult <- loadGraphFile (optGraphPath opts)
-  case graphResult of
-    Left err ->
-      die $ "Error loading graph: " ++ displayLoadGraphError err
-    Right graph -> do
-      case validateRunNodes graph (optSource opts) (optTarget opts) of
-        Left parseError ->
-          die $ "Error in source/target: " ++ displayParseError parseError
-        Right () -> do
-          putStrLn "Graph loaded:"
-          putStrLn ""
-          putStrLn (describeGraph graph)
-          putStrLn ""
-
-          spec <-
-            either
-              (\algorithmError -> die (displayAlgorithmError algorithmError))
-              pure
-              (resolveAlgorithm graph (optAlgorithm opts))
-          let cfg =
-                mkRunConfig
-                  graph
-                  (optSource opts)
-                  (optTarget opts)
-                  (optAlgorithm opts)
-                  (optThreads opts)
-          pregelRun <-
-            if optSequential opts
-              then pure $ runSequential cfg spec
-              else runPregel cfg spec
-
-          putStrLn
-            ( if optSequential opts
-                then "Pregel execution (sequential):"
-                else "Pregel execution (async + STM):"
-            )
-          putStrLn ""
-          putStrLn (describeRun (optVerbose opts) pregelRun)
+executionHeader :: Options -> String
+executionHeader opts =
+  if optSequential opts
+    then "Pregel execution (sequential):"
+    else "Pregel execution (async + STM):"

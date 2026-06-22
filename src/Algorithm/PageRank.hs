@@ -3,10 +3,8 @@ module Algorithm.PageRank
   )
 where
 
-import Algorithm.Common (UpdateM, extractRankingsResult, runVertexUpdate)
+import Algorithm.Common (VertexUpdate (..), extractRankingsResult, runVertexUpdate)
 import Algorithm.Types (AlgorithmSpec (..))
-import Control.Monad.State.Strict (get, put)
-import Control.Monad.Writer.Strict (tell)
 import Graph.Types
 import Graph.VertexContext (VertexContext (..), outNeighbors, outDegree)
 import Pregel.Types
@@ -51,20 +49,19 @@ vertexUpdate ::
 vertexUpdate vtx state messages =
   let n = fromIntegral (vcNodeCount vtx)
       nodeId = vcNodeId vtx
-   in runVertexUpdate vtx state messages (pageRankUpdate n nodeId messages) emitOutgoing
+   in runVertexUpdate vtx state messages (pageRankUpdate n nodeId) emitOutgoing
 
-pageRankUpdate :: Double -> NodeId -> [Message] -> UpdateM Bool
-pageRankUpdate n nodeId messages = do
-  state <- get
+pageRankUpdate :: Double -> NodeId -> [Message] -> VertexState -> VertexUpdate
+pageRankUpdate n nodeId messages state =
   let oldRank = maybe (1 / n) id (vsRank state)
       incoming = sum [contribution | MsgRank contribution <- messages]
       newRank = (1 - damping) / n + damping * incoming
-  if abs (newRank - oldRank) <= rankEpsilon
-    then pure False
-    else do
-      tell [VertexRankUpdated nodeId newRank]
-      put state {vsRank = Just newRank}
-      pure True
+   in if abs (newRank - oldRank) <= rankEpsilon
+        then Unchanged
+        else
+          Updated
+            (state {vsRank = Just newRank})
+            [VertexRankUpdated nodeId newRank]
 
 emitOutgoing :: VertexContext -> VertexState -> [(NodeId, Message)]
 emitOutgoing vtx state =
