@@ -45,8 +45,10 @@ assertEnginesAgree cfg spec = do
   let sequential = runSequential cfg spec
   concurrent <- runPregel cfg spec
   case (sequential, concurrent) of
-    (Right seqRun, Right concRun) ->
-      pure (prResult seqRun @?= prResult concRun)
+    (Right seqRun, Right concRun) -> do
+      prResult seqRun @?= prResult concRun
+      prSupersteps seqRun @?= prSupersteps concRun
+      pure (prMaxStepsReached seqRun @?= prMaxStepsReached concRun)
     (Left err, _) ->
       assertFailure ("sequential engine failed: " ++ show err)
     (_, Left err) ->

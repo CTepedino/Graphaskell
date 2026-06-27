@@ -69,6 +69,8 @@ test-suite graphaskell-test
     other-modules:
         ParserTests,
         AlgorithmTests,
+        CommonTests,
+        SuperstepTests,
         TraceTests,
         PropertyTests,
         Fixtures,

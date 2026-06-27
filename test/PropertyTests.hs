@@ -1,39 +1,55 @@
 module PropertyTests (propertyTests) where
 
+import Algorithm.BFS (bfsSpec)
 import Algorithm.Result (Result (..))
 import Algorithm.Types (AlgorithmSpec (..), SomeAlgorithmSpec (..))
+import Data.List (nub)
+import qualified Data.Set as Set
 import Fixtures
-  ( parseFixture,
+  ( disconnectedGraphText,
+    pageRankGraphText,
+    parseFixture,
     requireRight,
     resolveFixture,
-    runFixture,
     simpleGraphText,
     weightedGraphText,
   )
 import Graph.Parser (parseGraphFile)
-import Graph.Types (Algorithm (..), nodeCount)
+import Graph.Types
+  ( Algorithm (..),
+    Edge (..),
+    Graph,
+    NodeId,
+    buildGraph,
+    neighbors,
+    nodeCount,
+  )
 import Pregel.Engine (mkRunConfig)
-import Pregel.Types (PregelRun (..), somePregelResult)
+import Pregel.Types (PregelRun (..))
 import SequentialEngine (runSequential)
 import Test.HUnit (Test (..), (~:), assertFailure)
 import Test.QuickCheck
-  ( Property,
+  ( Gen,
+    Property,
     Testable,
     choose,
     forAll,
     property,
     stdArgs,
+    vectorOf,
     (===),
   )
-import Test.QuickCheck.Test (Result (..), quickCheckWithResult)
+import Test.QuickCheck.Test qualified as QC
 import TestSupport (validPath)
 
 propertyTests :: Test
 propertyTests =
   TestList
     [ "prop: sequential engine is deterministic on CC" ~: check prop_sequentialDeterministic,
-      "prop: BFS PathFound uses valid edges" ~: check prop_bfsPathUsesEdges,
-      "prop: BFS hop distance matches path length" ~: check prop_bfsDistanceMatchesPathLength,
+      "prop: sequential engine is deterministic on all algorithms" ~:
+        check prop_sequentialDeterministicAll,
+      "prop: BFS on reachable pairs finds optimal hop path" ~:
+        check prop_bfsOptimalHopPath,
       "prop: parsed graph node count matches NODES directive" ~:
         check prop_parsedNodeCountMatchesDirective,
       "prop: algorithm max supersteps is positive" ~: check prop_maxSuperstepsPositive
@@ -41,9 +57,9 @@ propertyTests =
 
 check :: Testable prop => prop -> IO ()
 check prop = do
-  result <- quickCheckWithResult stdArgs prop
+  result <- QC.quickCheckWithResult stdArgs prop
   case result of
-    Success {} ->
+    QC.Success {} ->
       pure ()
     other ->
       assertFailure (show other)
@@ -57,21 +73,95 @@ prop_sequentialDeterministic =
           second = requireRight (runSequential cfg spec)
        in prResult first === prResult second
 
-prop_bfsPathUsesEdges :: Property
-prop_bfsPathUsesEdges =
+prop_sequentialDeterministicAll :: Property
+prop_sequentialDeterministicAll =
   property $
-    let graph = parseFixture simpleGraphText
-        run = runFixture BFS 0 (Just 4) simpleGraphText
-     in case somePregelResult run of
-          PathFound path _ -> validPath graph path
-          _ -> True
+    all deterministicCase algorithmCases
 
-prop_bfsDistanceMatchesPathLength :: Property
-prop_bfsDistanceMatchesPathLength =
-  property $
-    case somePregelResult (runFixture BFS 0 (Just 4) simpleGraphText) of
-      PathFound path dist -> dist + 1 == length path
-      _ -> True
+data AlgorithmCase = AlgorithmCase
+  { acAlgorithm :: Algorithm,
+    acGraphText :: String,
+    acSource :: Int,
+    acTarget :: Maybe Int
+  }
+
+algorithmCases :: [AlgorithmCase]
+algorithmCases =
+  [ AlgorithmCase BFS simpleGraphText 0 (Just 4),
+    AlgorithmCase BellmanFord weightedGraphText 0 (Just 3),
+    AlgorithmCase ConnectedComponents disconnectedGraphText 0 Nothing,
+    AlgorithmCase PageRank pageRankGraphText 0 Nothing,
+    AlgorithmCase LabelPropagation simpleGraphText 0 Nothing
+  ]
+
+deterministicCase :: AlgorithmCase -> Bool
+deterministicCase AlgorithmCase {acAlgorithm, acGraphText, acSource, acTarget} =
+  case resolveFixture acAlgorithm (parseFixture acGraphText) of
+    SomeAlgorithmSpec spec ->
+      let graph = parseFixture acGraphText
+          cfg = mkRunConfig graph acSource acTarget 1 spec
+          first = requireRight (runSequential cfg spec)
+          second = requireRight (runSequential cfg spec)
+       in prResult first == prResult second
+
+genReachableGraph :: Gen (Graph, NodeId, NodeId)
+genReachableGraph = do
+  nodeTotal <- choose (2, 5)
+  target <- choose (1, nodeTotal - 1)
+  extraCount <- choose (0, nodeTotal * 2)
+  extras <-
+    vectorOf extraCount $ do
+      from <- choose (0, nodeTotal - 1)
+      to <- choose (0, nodeTotal - 1)
+      pure (from, to)
+  let spine = zip [0 .. nodeTotal - 2] [1 .. nodeTotal - 1]
+      pairs = nub (spine ++ [(from, to) | (from, to) <- extras, from /= to])
+      edges = [Edge from to Nothing | (from, to) <- pairs]
+  pure (buildGraph nodeTotal edges, 0, target)
+
+shortestHops :: Graph -> NodeId -> NodeId -> Maybe Int
+shortestHops graph source target
+  | source == target =
+      Just 0
+  | otherwise =
+      go [(source, 0)] Set.empty
+  where
+    go [] _ =
+      Nothing
+    go ((node, dist) : queue) visited
+      | node `Set.member` visited =
+          go queue visited
+      | node == target =
+          Just dist
+      | otherwise =
+          let visited' = Set.insert node visited
+              next =
+                [ (to, dist + 1)
+                  | (to, _) <- neighbors graph node,
+                    to `Set.notMember` visited'
+                ]
+           in go (queue ++ next) visited'
+
+runBfsSequential :: Graph -> NodeId -> NodeId -> Result
+runBfsSequential graph source target =
+  prResult (requireRight (runSequential (mkRunConfig graph source (Just target) 1 bfsSpec) bfsSpec))
+
+prop_bfsOptimalHopPath :: Property
+prop_bfsOptimalHopPath =
+  forAll genReachableGraph $ \(graph, source, target) ->
+    case runBfsSequential graph source target of
+      PathFound path dist ->
+        case shortestHops graph source target of
+          Just minDist ->
+            dist == minDist
+              && dist + 1 == length path
+              && validPath graph path
+          Nothing ->
+            False
+      NoPath ->
+        shortestHops graph source target == Nothing
+      _ ->
+        False
 
 prop_parsedNodeCountMatchesDirective :: Property
 prop_parsedNodeCountMatchesDirective =

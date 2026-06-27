@@ -2,7 +2,7 @@ module TraceTests (traceTests) where
 
 import Algorithm.Log (PathLogEntry (..), RankLogEntry (..))
 import Algorithm.Messages (DistanceMsg (..), RankMsg)
-import Algorithm.Result (Result (..))
+import Algorithm.Result (Result (..), describeResult)
 import Data.List (isInfixOf)
 import Fixtures (disconnectedGraphText, runFixture)
 import Graph.Types (Algorithm (..))
@@ -42,7 +42,37 @@ traceTests =
       "describeRun formats no path result" ~: do
         let output = describeRun False noPathRun
         assertBool "shows no path message" $
-          "no path between source and target" `isInfixOf` output
+          "no path between source and target" `isInfixOf` output,
+      "describeResult formats path found" ~: do
+        let output = describeResult (PathFound [0, 1, 2] 2)
+        assertBool "shows path header" $
+          "Result: path found" `isInfixOf` output
+        assertBool "shows distance" $
+          "Distance: 2" `isInfixOf` output
+        assertBool "shows path" $
+          "Path:     [0,1,2]" `isInfixOf` output,
+      "describeResult formats no path" ~: do
+        describeResult NoPath @?= "Result: no path between source and target",
+      "describeResult formats connected components" ~: do
+        let output = describeResult (Components [(0, [0, 1]), (2, [2, 3])])
+        assertBool "shows components header" $
+          "Result: connected components" `isInfixOf` output
+        assertBool "shows first component" $
+          "component 0: [0,1]" `isInfixOf` output
+        assertBool "shows second component" $
+          "component 2: [2,3]" `isInfixOf` output,
+      "describeResult formats PageRank rankings" ~: do
+        let output = describeResult (Rankings [(0, 0.1), (1, 0.2)])
+        assertBool "shows PageRank header" $
+          "Result: PageRank" `isInfixOf` output
+        assertBool "shows node rank line" $
+          "node 0: 0.1" `isInfixOf` output,
+      "describeResult formats label propagation" ~: do
+        let output = describeResult (NodeLabels [(0, 0), (1, 0)])
+        assertBool "shows label propagation header" $
+          "Result: label propagation" `isInfixOf` output
+        assertBool "shows node label line" $
+          "node 0 -> label 0" `isInfixOf` output
     ]
 
 type SampleLog = PathLogEntry DistanceMsg
