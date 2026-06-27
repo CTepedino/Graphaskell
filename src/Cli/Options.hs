@@ -18,8 +18,7 @@ data Options = Options
     optTarget :: Maybe NodeId,
     optAlgorithm :: Algorithm,
     optMaxCapabilities :: Int,
-    optVerbose :: Bool,
-    optSequential :: Bool
+    optVerbose :: Bool
   }
   deriving (Eq, Show)
 
@@ -55,11 +54,10 @@ rawParser ::
       Maybe NodeId,
       Algorithm,
       Maybe Int,
-      Bool,
       Bool
     )
 rawParser =
-  (,,,,,,)
+  (,,,,,)
     <$> strOption
       ( long "graph"
           <> short 'g'
@@ -104,15 +102,11 @@ rawParser =
           <> short 'v'
           <> help "Detailed per-superstep traces (messages and updates)"
       )
-    <*> switch
-      ( long "sequential"
-          <> help "Run the Pregel engine sequentially (no async/STM)"
-      )
 
 parseOptions :: IO Options
 parseOptions = do
   maxThreads <- getNumCapabilities
-  (graphPath, source, target, algorithm, mThreads, verbose, sequential) <-
+  (graphPath, source, target, algorithm, mThreads, verbose) <-
     execParser
       ( info
           (helper <*> rawParser)
@@ -141,6 +135,5 @@ parseOptions = do
         optTarget = target,
         optAlgorithm = algorithm,
         optMaxCapabilities = maxThreads,
-        optVerbose = verbose,
-        optSequential = sequential
+        optVerbose = verbose
       }

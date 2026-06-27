@@ -10,7 +10,7 @@ import Graph.Parser
     validateRunNodes,
   )
 import Output.Trace (describeRun)
-import Pregel.Engine (mkRunConfig, runPregel, runSequential)
+import Pregel.Engine (mkRunConfig, runPregel)
 import System.Exit (die)
 
 main :: IO ()
@@ -46,10 +46,7 @@ execute opts =
                             (optSource opts)
                             (optTarget opts)
                             (optThreads opts)
-                    pregelRun <-
-                      if optSequential opts
-                        then pure (runSequential cfg spec)
-                        else runPregel cfg spec
+                    pregelRun <- runPregel cfg spec
                     pure
                       ( Right
                           ( configBanner opts
@@ -57,7 +54,7 @@ execute opts =
                                    "",
                                    describeGraph graph,
                                    "",
-                                   executionHeader opts,
+                                   "Pregel execution (async + STM):",
                                    "",
                                    describeRun (optVerbose opts) pregelRun
                                  ]
@@ -77,17 +74,7 @@ configBanner opts =
       ++ " / "
       ++ show (optMaxCapabilities opts)
       ++ " capabilities",
-    "  Mode:       "
-      ++ if optSequential opts
-        then "sequential"
-        else "concurrent (async + STM)",
     "  Verbose:    "
       ++ if optVerbose opts then "yes" else "no",
     ""
   ]
-
-executionHeader :: Options -> String
-executionHeader opts =
-  if optSequential opts
-    then "Pregel execution (sequential):"
-    else "Pregel execution (async + STM):"

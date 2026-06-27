@@ -12,16 +12,24 @@ import Fixtures
     weightedGraphText,
   )
 import Graph.Types (Algorithm (..))
-import Pregel.Engine (PregelRun (..), mkRunConfig, runPregel, runSequential)
+import Pregel.Engine (PregelRun (..), mkRunConfig)
 import Pregel.Types (InputError (..), Result (..))
 import Test.HUnit
+import TestSupport
+  ( assertEnginesAgree,
+    assertRankingsApprox,
+    assertValidBfsPath,
+    labelPropagationExpected,
+    pageRankExpected,
+  )
 
 algorithmTests :: Test
 algorithmTests =
   TestList
-    [ "BFS finds minimum-hop path" ~: do
-        let run = runFixture BFS 0 (Just 4) simpleGraphText
-        prResult run @?= PathFound [0, 2, 3, 4] 3,
+    [ "BFS finds a minimum-hop path" ~: do
+        let graph = parseFixture simpleGraphText
+            run = runFixture BFS 0 (Just 4) simpleGraphText
+        assertValidBfsPath graph 0 4 3 (prResult run),
       "Bellman-Ford finds minimum weighted path" ~: do
         let run = runFixture BellmanFord 0 (Just 3) weightedGraphText
         prResult run @?= PathFound [0, 2, 1, 3] 4,
@@ -32,9 +40,9 @@ algorithmTests =
         let run = runFixture BFS 0 Nothing simpleGraphText
         prResult run @?= InputError MissingTarget,
       "validatePathTarget rejects BFS without target" ~: do
-        case validatePathTarget BFS Nothing of
-          Left MissingPathTarget -> return ()
-          other -> assertFailure (show other),
+        validatePathTarget BFS Nothing @?= Left MissingPathTarget,
+      "validatePathTarget rejects Bellman-Ford without target" ~: do
+        validatePathTarget BellmanFord Nothing @?= Left MissingPathTarget,
       "validatePathTarget accepts PageRank without target" ~: do
         validatePathTarget PageRank Nothing @?= Right (),
       "Bellman-Ford rejects unweighted graph" ~: do
@@ -42,34 +50,36 @@ algorithmTests =
         case resolveAlgorithm graph BellmanFord of
           Left WeightedGraphRequired -> return ()
           _ -> assertFailure "expected WeightedGraphRequired",
-      "connected components from source" ~: do
+      "connected components list all groups in connected graph" ~: do
         let run = runFixture ConnectedComponents 0 Nothing simpleGraphText
         prResult run @?= Components [(0, [0, 1, 2, 3, 4])],
-      "connected components in disconnected graph" ~: do
+      "connected components list all groups in disconnected graph" ~: do
         let run = runFixture ConnectedComponents 0 Nothing disconnectedGraphText
         prResult run @?= Components [(0, [0, 1]), (2, [2, 3])],
-      "PageRank produces per-node rankings" ~: do
+      "PageRank converges to expected rankings" ~: do
         let run = runFixture PageRank 0 Nothing pageRankGraphText
-        case prResult run of
-          Rankings pairs -> length pairs @?= 4
-          other -> assertFailure (show other),
-      "label propagation produces labels" ~: do
+        assertRankingsApprox 1e-6 pageRankExpected (prResult run),
+      "label propagation converges to expected labels" ~: do
         let run = runFixture LabelPropagation 0 Nothing simpleGraphText
-        case prResult run of
-          NodeLabels pairs -> length pairs @?= 5
-          other -> assertFailure (show other),
-      "sequential and concurrent engines agree (BFS)" ~: do
-        let graph = parseFixture simpleGraphText
-            spec = resolveFixture BFS graph
-            cfg = mkRunConfig graph 0 (Just 4) 4
-            sequential = runSequential cfg spec
-        concurrent <- runPregel cfg spec
-        prResult sequential @?= prResult concurrent,
-      "threads=1 concurrent matches sequential (Bellman-Ford)" ~: do
-        let graph = parseFixture weightedGraphText
-            spec = resolveFixture BellmanFord graph
-            cfg = mkRunConfig graph 0 (Just 3) 1
-            sequential = runSequential cfg spec
-        concurrent <- runPregel cfg spec
-        prResult sequential @?= prResult concurrent
+        prResult run @?= NodeLabels labelPropagationExpected,
+      "sequential and concurrent engines agree on BFS" ~:
+        assertEnginesAgree
+          (mkRunConfig (parseFixture simpleGraphText) 0 (Just 4) 4)
+          (resolveFixture BFS (parseFixture simpleGraphText)),
+      "sequential and concurrent engines agree on Bellman-Ford" ~:
+        assertEnginesAgree
+          (mkRunConfig (parseFixture weightedGraphText) 0 (Just 3) 1)
+          (resolveFixture BellmanFord (parseFixture weightedGraphText)),
+      "sequential and concurrent engines agree on connected components" ~:
+        assertEnginesAgree
+          (mkRunConfig (parseFixture disconnectedGraphText) 0 Nothing 2)
+          (resolveFixture ConnectedComponents (parseFixture disconnectedGraphText)),
+      "sequential and concurrent engines agree on PageRank" ~:
+        assertEnginesAgree
+          (mkRunConfig (parseFixture pageRankGraphText) 0 Nothing 2)
+          (resolveFixture PageRank (parseFixture pageRankGraphText)),
+      "sequential and concurrent engines agree on label propagation" ~:
+        assertEnginesAgree
+          (mkRunConfig (parseFixture simpleGraphText) 0 Nothing 2)
+          (resolveFixture LabelPropagation (parseFixture simpleGraphText))
     ]

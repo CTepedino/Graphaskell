@@ -1,6 +1,6 @@
 # Graphaskell
 
-Graph explorer with a **Pregel (BSP)** engine in Haskell. Each algorithm is an `AlgorithmSpec` (pure init, bootstrap, vertex update, and result extraction). The default engine runs supersteps concurrently with `async` + STM; pass `--sequential` for the single-threaded reference implementation.
+Graph explorer with a **Pregel (BSP)** engine in Haskell. Each algorithm is an `AlgorithmSpec` (pure init, bootstrap, vertex update, and result extraction). Supersteps run concurrently with `async` + STM.
 
 ## Requirements
 
@@ -62,7 +62,6 @@ cabal run graphaskell -- -g examples/grafo-simple.txt -s 0 -a LP
 | `-a`, `--algorithm` | `BFS`, `BELLMANFORD`, `PAGERANK`, `CC`, `LP` |
 | `--threads` | Number of threads (default: RTS capabilities) |
 | `-v`, `--verbose` | Detailed per-superstep traces |
-| `--sequential` | Sequential engine (no async/STM, useful for debugging) |
 
 ## Tests
 

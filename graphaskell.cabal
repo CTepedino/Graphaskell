@@ -59,9 +59,13 @@ test-suite graphaskell-test
         ParserTests,
         AlgorithmTests,
         TraceTests,
-        Fixtures
+        Fixtures,
+        SequentialEngine,
+        TestSupport
     build-depends:
         base,
+        containers,
+        directory,
         HUnit,
         graphaskell
     default-language: GHC2021

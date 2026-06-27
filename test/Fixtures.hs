@@ -13,7 +13,8 @@ import Algorithm.Spec (resolveAlgorithm)
 import Algorithm.Types (AlgorithmSpec)
 import Graph.Parser (parseGraphFile)
 import Graph.Types (Algorithm (..), Graph, NodeId)
-import Pregel.Engine (PregelRun, mkRunConfig, runSequential)
+import Pregel.Engine (PregelRun, mkRunConfig)
+import SequentialEngine (runSequential)
 
 simpleGraphText :: String
 simpleGraphText =

@@ -1,10 +1,13 @@
 module TraceTests (traceTests) where
 
 import Data.List (isInfixOf)
+import Fixtures (disconnectedGraphText, runFixture)
+import Graph.Types (Algorithm (..))
 import Output.Trace (describeRun)
 import Pregel.Engine (PregelRun (..))
 import Pregel.Types
 import Test.HUnit
+import TestSupport (assertComponentsListed)
 
 traceTests :: Test
 traceTests =
@@ -20,7 +23,23 @@ traceTests =
       "describeRun warns when superstep limit is reached" ~: do
         let output = describeRun False maxStepsRun
         assertBool "shows limit warning" $
-          "maximum superstep limit reached" `isInfixOf` output
+          "maximum superstep limit reached" `isInfixOf` output,
+      "describeRun formats connected components" ~: do
+        let run = runFixture ConnectedComponents 0 Nothing disconnectedGraphText
+            output = describeRun False run
+        assertComponentsListed "Result: connected components" output
+        assertComponentsListed "component 0: [0,1]" output
+        assertComponentsListed "component 2: [2,3]" output,
+      "describeRun formats PageRank rankings" ~: do
+        let output = describeRun False pageRankRun
+        assertBool "shows PageRank header" $
+          "Result: PageRank" `isInfixOf` output
+        assertBool "shows node rank line" $
+          "node 1:" `isInfixOf` output,
+      "describeRun formats no path result" ~: do
+        let output = describeRun False noPathRun
+        assertBool "shows no path message" $
+          "no path between source and target" `isInfixOf` output
     ]
 
 sampleRun :: PregelRun
@@ -48,3 +67,13 @@ maxStepsRun =
     { prMaxStepsReached = True,
       prSupersteps = 25
     }
+
+pageRankRun :: PregelRun
+pageRankRun =
+  sampleRun
+    { prResult = Rankings [(0, 0.1), (1, 0.2), (2, 0.3), (3, 0.4)]
+    }
+
+noPathRun :: PregelRun
+noPathRun =
+  sampleRun {prResult = NoPath}
