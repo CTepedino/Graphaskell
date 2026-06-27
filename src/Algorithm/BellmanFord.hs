@@ -52,9 +52,8 @@ bellmanFordUpdate vtx messages = tryImproveDistance
 weightedCandidate :: VertexContext -> Message -> Maybe (Int, NodeId)
 weightedCandidate _ (MsgLabel _) = Nothing
 weightedCandidate _ (MsgRank _) = Nothing
-weightedCandidate vtx (MsgDistance from dist) = do
-  weight <- lookupIncomingWeight vtx from
-  Just (dist + weight, from)
+weightedCandidate vtx (MsgDistance from dist) =
+  fmap (\weight -> (dist + weight, from)) (lookupIncomingWeight vtx from)
 
 emitOutgoing :: VertexContext -> VertexState -> [(NodeId, Message)]
 emitOutgoing vtx state =
