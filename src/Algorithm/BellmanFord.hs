@@ -4,7 +4,7 @@ module Algorithm.BellmanFord
 where
 
 import Algorithm.Common
-  ( VertexUpdate,
+  ( VertexUpdate (..),
     extractPathResult,
     pathBootstrap,
     pathInitState,
@@ -12,6 +12,7 @@ import Algorithm.Common
     runVertexUpdate,
     tryImproveDistance,
   )
+import Algorithm.State (PathState (..), emptyPathState)
 import Algorithm.Types (AlgorithmSpec (..))
 import Data.Maybe (isJust, mapMaybe)
 import Graph.Types (NodeId)
@@ -22,10 +23,11 @@ import Graph.VertexContext
   )
 import Pregel.Types
 
-bellmanFordSpec :: AlgorithmSpec
+bellmanFordSpec :: AlgorithmSpec PathState DistanceMsg
 bellmanFordSpec =
   AlgorithmSpec
     { specInitState = pathInitState,
+      specDefaultState = emptyPathState,
       specBootstrap = pathBootstrap isJust,
       specVertexUpdate = vertexUpdate,
       specExtractResult = extractPathResult,
@@ -34,28 +36,29 @@ bellmanFordSpec =
 
 vertexUpdate ::
   VertexContext ->
-  VertexState ->
-  [Message] ->
-  VertexStepResult
+  PathState ->
+  [DistanceMsg] ->
+  VertexStepResult PathState DistanceMsg
 vertexUpdate vtx state messages =
   runVertexUpdate vtx state messages (bellmanFordUpdate vtx) emitOutgoing
 
-bellmanFordUpdate :: VertexContext -> [Message] -> VertexState -> VertexUpdate
-bellmanFordUpdate vtx messages = tryImproveDistance
-  (vcNodeId vtx)
-  (mapMaybe (weightedCandidate vtx) messages)
+bellmanFordUpdate :: VertexContext -> [DistanceMsg] -> PathState -> VertexUpdate PathState DistanceMsg
+bellmanFordUpdate vtx messages =
+  tryImproveDistance
+    (vcNodeId vtx)
+    (mapMaybe (weightedCandidate vtx) messages)
 
-weightedCandidate :: VertexContext -> Message -> Maybe (Int, NodeId)
-weightedCandidate _ (MsgLabel _) = Nothing
-weightedCandidate _ (MsgRank _) = Nothing
-weightedCandidate vtx (MsgDistance from dist) =
-  fmap (\weight -> (dist + weight, from)) (lookupIncomingWeight vtx from)
+weightedCandidate :: VertexContext -> DistanceMsg -> Maybe (Int, NodeId)
+weightedCandidate vtx message =
+  fmap
+    (\weight -> (dmDistance message + weight, dmFrom message))
+    (lookupIncomingWeight vtx (dmFrom message))
 
-emitOutgoing :: VertexContext -> VertexState -> [(NodeId, Message)]
+emitOutgoing :: VertexContext -> PathState -> [(NodeId, DistanceMsg)]
 emitOutgoing vtx state =
-  case vsDistance state of
+  case psDistance state of
     Nothing -> []
     Just dist ->
-      [ (to, MsgDistance (vcNodeId vtx) dist)
+      [ (to, DistanceMsg (vcNodeId vtx) dist)
         | to <- weightedOutNeighbors vtx
       ]

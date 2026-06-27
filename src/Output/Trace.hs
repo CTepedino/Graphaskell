@@ -7,7 +7,7 @@ import Data.List (sortBy)
 import Data.Ord (comparing)
 import Pregel.Types
 
-describeRun :: Bool -> PregelRun -> String
+describeRun :: Show msg => Bool -> PregelRun msg -> String
 describeRun verbose run =
   unlines
     ( map (describeSuperstep verbose) (prLogs run)
@@ -16,7 +16,7 @@ describeRun verbose run =
         ++ [describeResult (prResult run)]
     )
 
-superstepSummary :: PregelRun -> [String]
+superstepSummary :: PregelRun msg -> [String]
 superstepSummary run =
   [ "Converged in " ++ show (prSupersteps run) ++ " supersteps.",
     ""
@@ -28,7 +28,7 @@ superstepSummary run =
         ]
       else []
 
-describeSuperstep :: Bool -> SuperstepLog -> String
+describeSuperstep :: Show msg => Bool -> SuperstepLog msg -> String
 describeSuperstep verbose stepLog =
   unlines
     ( header
@@ -46,11 +46,11 @@ describeSuperstep verbose stepLog =
         ++ show (sslMessagesSent stepLog)
         ++ " messages sent"
 
-sortedEntries :: SuperstepLog -> [LogEntry]
+sortedEntries :: SuperstepLog msg -> [LogEntry msg]
 sortedEntries stepLog =
   sortBy (comparing logEntrySortKey) (sslEntries stepLog)
 
-describeLogEntry :: LogEntry -> String
+describeLogEntry :: Show msg => LogEntry msg -> String
 describeLogEntry entry =
   case entry of
     VertexUpdated nodeId distance ->
@@ -76,17 +76,8 @@ describeLogEntry entry =
         ++ ": "
         ++ describeMessage message
 
-describeMessage :: Message -> String
-describeMessage (MsgDistance from distance) =
-  "MsgDistance(from="
-    ++ show from
-    ++ ", dist="
-    ++ show distance
-    ++ ")"
-describeMessage (MsgLabel label) =
-  "MsgLabel(label=" ++ show label ++ ")"
-describeMessage (MsgRank rank) =
-  "MsgRank(rank=" ++ show rank ++ ")"
+describeMessage :: Show msg => msg -> String
+describeMessage = show
 
 describeResult :: Result -> String
 describeResult result =
@@ -135,13 +126,3 @@ describeResult result =
               )
               pairs
         )
-    InputError err ->
-      "Result: invalid input — " ++ displayInputError err
-
-displayInputError :: InputError -> String
-displayInputError err =
-  case err of
-    MissingTarget ->
-      "--target is required to compute a path"
-    TargetNodeMissing nodeId ->
-      "node " ++ show nodeId ++ " does not exist"

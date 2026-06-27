@@ -6,19 +6,20 @@ module Fixtures
     parseFixture,
     parseFixtureEither,
     runFixture,
+    runFixtureEither,
     resolveFixture,
     requireRight,
   )
 where
 
-import Algorithm.Spec (resolveAlgorithm)
-import Algorithm.Types (AlgorithmSpec)
+import Algorithm.Spec (SomeAlgorithmSpec (..), resolveAlgorithm)
 import Graph.ParseError (ParseError)
 import Graph.Parser (parseGraphFile)
 import Graph.Types (Algorithm (..), Graph, NodeId)
 import Pregel.Engine (mkRunConfig)
-import Pregel.Types (PregelRun)
-import SequentialEngine (runSequential)
+import Pregel.Error (PregelError)
+import Pregel.Types (RunConfig (..), SomePregelRun (..))
+import SequentialEngine (runSomeSequential)
 
 simpleGraphText :: String
 simpleGraphText =
@@ -78,7 +79,7 @@ parseFixture :: String -> Graph
 parseFixture =
   requireRight . parseFixtureEither
 
-resolveFixture :: Algorithm -> Graph -> AlgorithmSpec
+resolveFixture :: Algorithm -> Graph -> SomeAlgorithmSpec
 resolveFixture algorithm graph =
   requireRight (resolveAlgorithm graph algorithm)
 
@@ -87,9 +88,28 @@ runFixture ::
   NodeId ->
   Maybe NodeId ->
   String ->
-  PregelRun
+  SomePregelRun
 runFixture algorithm source target text =
+  requireRight (runFixtureEither algorithm source target text)
+
+runFixtureEither ::
+  Algorithm ->
+  NodeId ->
+  Maybe NodeId ->
+  String ->
+  Either PregelError SomePregelRun
+runFixtureEither algorithm source target text =
   let graph = parseFixture text
       spec = resolveFixture algorithm graph
-      cfg = mkRunConfig graph source target 1 spec
-   in requireRight (runSequential cfg spec)
+      cfg = mkRunConfigForSpec graph source target 1 spec
+   in runSomeSequential cfg spec
+
+mkRunConfigForSpec ::
+  Graph ->
+  NodeId ->
+  Maybe NodeId ->
+  Int ->
+  SomeAlgorithmSpec ->
+  RunConfig
+mkRunConfigForSpec graph source target threads (SomeAlgorithmSpec spec) =
+  mkRunConfig graph source target threads spec

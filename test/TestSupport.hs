@@ -1,6 +1,7 @@
 module TestSupport
   ( assertComponentsListed,
     assertEnginesAgree,
+    assertEnginesAgreeSome,
     assertRankingsApprox,
     assertValidBfsPath,
     examplesGraphPaths,
@@ -11,11 +12,11 @@ module TestSupport
   )
 where
 
-import Algorithm.Types (AlgorithmSpec)
+import Algorithm.Types (AlgorithmSpec, SomeAlgorithmSpec (..))
 import Data.List (isInfixOf)
 import Graph.Parser (parseGraphFile)
 import Graph.Types (Graph, NodeId, neighbors)
-import Pregel.Engine (runPregel)
+import Pregel.Engine (mkRunConfig, runPregel)
 import Pregel.Types (PregelRun (..), Result (..), RunConfig)
 import SequentialEngine (runSequential)
 import System.Directory (doesFileExist)
@@ -38,7 +39,7 @@ labelPropagationExpected =
     (4, 0)
   ]
 
-assertEnginesAgree :: RunConfig -> AlgorithmSpec -> IO Assertion
+assertEnginesAgree :: RunConfig -> AlgorithmSpec state msg -> IO Assertion
 assertEnginesAgree cfg spec = do
   let sequential = runSequential cfg spec
   concurrent <- runPregel cfg spec
@@ -49,6 +50,18 @@ assertEnginesAgree cfg spec = do
       assertFailure ("sequential engine failed: " ++ show err)
     (_, Left err) ->
       assertFailure ("concurrent engine failed: " ++ show err)
+
+assertEnginesAgreeSome ::
+  Graph ->
+  NodeId ->
+  Maybe NodeId ->
+  Int ->
+  SomeAlgorithmSpec ->
+  IO Assertion
+assertEnginesAgreeSome graph source target threads someSpec =
+  case someSpec of
+    SomeAlgorithmSpec spec ->
+      assertEnginesAgree (mkRunConfig graph source target threads spec) spec
 
 assertRankingsApprox :: Double -> [(NodeId, Double)] -> Result -> Assertion
 assertRankingsApprox epsilon expected result =

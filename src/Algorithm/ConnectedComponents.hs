@@ -14,38 +14,39 @@ import Algorithm.Common
     runVertexUpdate,
     tryRelabel,
   )
+import Algorithm.State (LabelState (..), emptyLabelState)
 import Algorithm.Types (AlgorithmSpec (..))
 import Graph.Types
 import Graph.VertexContext (VertexContext (..))
 import Pregel.Types
 
-connectedComponentsSpec :: AlgorithmSpec
+connectedComponentsSpec :: AlgorithmSpec LabelState LabelMsg
 connectedComponentsSpec =
   AlgorithmSpec
     { specInitState = initState,
+      specDefaultState = emptyLabelState,
       specBootstrap = bootstrap,
       specVertexUpdate = vertexUpdate,
       specExtractResult = extractComponentResult,
       specMaxSupersteps = labelMaxSupersteps
     }
 
-initState :: NodeId -> RunConfig -> VertexState
+initState :: NodeId -> RunConfig -> LabelState
 initState nodeId _cfg =
-  initialVertexState {vsLabel = Just nodeId}
+  LabelState nodeId
 
-bootstrap :: RunConfig -> [(NodeId, Message)]
+bootstrap :: RunConfig -> [(NodeId, LabelMsg)]
 bootstrap = labelBootstrap
 
 vertexUpdate ::
   VertexContext ->
-  VertexState ->
-  [Message] ->
-  VertexStepResult
+  LabelState ->
+  [LabelMsg] ->
+  VertexStepResult LabelState LabelMsg
 vertexUpdate vtx state messages =
   runVertexUpdate vtx state messages (ccUpdate (vcNodeId vtx)) emitLabelMessages
 
-ccUpdate :: NodeId -> [Message] -> VertexState -> VertexUpdate
+ccUpdate :: NodeId -> [LabelMsg] -> LabelState -> VertexUpdate LabelState LabelMsg
 ccUpdate nodeId messages state =
-  let currentLabel = maybe nodeId id (vsLabel state)
-      newLabel = minimumWithSelf currentLabel (labelsFromMessages messages)
+  let newLabel = minimumWithSelf (lsLabel state) (labelsFromMessages messages)
    in tryRelabel nodeId newLabel state

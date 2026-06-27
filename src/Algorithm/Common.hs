@@ -24,6 +24,12 @@ module Algorithm.Common
 where
 
 import Algorithm.Error (AlgorithmError (..))
+import Algorithm.State
+  ( LabelState (..),
+    PathState (..),
+    RankState (..),
+    emptyPathState,
+  )
 import Data.List (minimumBy, sort)
 import Data.Maybe (isJust)
 import Data.Map.Strict (Map)
@@ -33,9 +39,9 @@ import Graph.Types
 import Graph.VertexContext (VertexContext, outNeighbors, vcNodeId)
 import Pregel.Types
 
-data VertexUpdate
+data VertexUpdate state msg
   = Unchanged
-  | Updated VertexState [LogEntry]
+  | Updated state [LogEntry msg]
   deriving (Eq, Show)
 
 validateWeightedGraph :: Graph -> Either AlgorithmError ()
@@ -47,79 +53,82 @@ validateWeightedGraph graph
   | otherwise =
       Left WeightedGraphRequired
 
-extractPathResult :: Map NodeId VertexState -> RunConfig -> Result
+extractPathResult :: Map NodeId PathState -> RunConfig -> Either AlgorithmError Result
 extractPathResult states cfg =
   case rcTarget cfg of
     Nothing ->
-      InputError MissingTarget
+      Left MissingPathTarget
     Just target ->
       case Map.lookup target states of
         Nothing ->
-          InputError (TargetNodeMissing target)
+          Left (TargetNodeMissing target)
         Just vertexState ->
-          case vsDistance vertexState of
-            Nothing -> NoPath
+          case psDistance vertexState of
+            Nothing -> Right NoPath
             Just dist ->
               let path = reconstructPath states target (rcSource cfg)
                in if null path
-                    then NoPath
-                    else PathFound path dist
+                    then Right NoPath
+                    else Right (PathFound path dist)
 
-extractComponentResult :: Map NodeId VertexState -> RunConfig -> Result
+extractComponentResult :: Map NodeId LabelState -> RunConfig -> Either AlgorithmError Result
 extractComponentResult states _cfg =
-  Components
-    ( sort
-        [ (label, sort members)
-          | (label, members) <- Map.toList (groupByLabel states)
-        ]
+  Right
+    ( Components
+        ( sort
+            [ (label, sort members)
+              | (label, members) <- Map.toList (groupByLabel states)
+            ]
+        )
     )
 
-groupByLabel :: Map NodeId VertexState -> Map NodeId [NodeId]
+groupByLabel :: Map NodeId LabelState -> Map NodeId [NodeId]
 groupByLabel states =
   Map.fromListWith
     (++)
-    [ (label, [nodeId])
-      | (nodeId, vertexState) <- Map.toList states,
-        Just label <- [vsLabel vertexState]
+    [ (lsLabel vertexState, [nodeId])
+      | (nodeId, vertexState) <- Map.toList states
     ]
 
-extractRankingsResult :: Map NodeId VertexState -> RunConfig -> Result
+extractRankingsResult :: Map NodeId RankState -> RunConfig -> Either AlgorithmError Result
 extractRankingsResult states _cfg =
-  Rankings
-    ( sort
-        [ (nodeId, rank)
-          | (nodeId, vertexState) <- Map.toList states,
-            Just rank <- [vsRank vertexState]
-        ]
+  Right
+    ( Rankings
+        ( sort
+            [ (nodeId, rsRank vertexState)
+              | (nodeId, vertexState) <- Map.toList states
+            ]
+        )
     )
 
-extractLabelResult :: Map NodeId VertexState -> RunConfig -> Result
+extractLabelResult :: Map NodeId LabelState -> RunConfig -> Either AlgorithmError Result
 extractLabelResult states _cfg =
-  NodeLabels
-    ( sort
-        [ (nodeId, label)
-          | (nodeId, vertexState) <- Map.toList states,
-            Just label <- [vsLabel vertexState]
-        ]
+  Right
+    ( NodeLabels
+        ( sort
+            [ (nodeId, lsLabel vertexState)
+              | (nodeId, vertexState) <- Map.toList states
+            ]
+        )
     )
 
-reconstructPath :: Map NodeId VertexState -> NodeId -> NodeId -> [NodeId]
+reconstructPath :: Map NodeId PathState -> NodeId -> NodeId -> [NodeId]
 reconstructPath states target source = go target []
   where
     go node acc
       | node == source = node : acc
       | otherwise =
-          case Map.lookup node states >>= vsPredecessor of
+          case Map.lookup node states >>= psPredecessor of
             Just predecessor -> go predecessor (node : acc)
             Nothing -> []
 
 runVertexUpdate ::
   VertexContext ->
-  VertexState ->
-  [Message] ->
-  ([Message] -> VertexState -> VertexUpdate) ->
-  (VertexContext -> VertexState -> [(NodeId, Message)]) ->
-  VertexStepResult
+  state ->
+  [msg] ->
+  ([msg] -> state -> VertexUpdate state msg) ->
+  (VertexContext -> state -> [(NodeId, msg)]) ->
+  VertexStepResult state msg
 runVertexUpdate vtx state messages update emit =
   let nodeId = vcNodeId vtx
    in case update messages state of
@@ -130,10 +139,10 @@ runVertexUpdate vtx state messages update emit =
 
 stepResult ::
   NodeId ->
-  VertexState ->
-  [(NodeId, Message)] ->
-  [LogEntry] ->
-  VertexStepResult
+  state ->
+  [(NodeId, msg)] ->
+  [LogEntry msg] ->
+  VertexStepResult state msg
 stepResult nodeId newState outgoing logs =
   let sentLogs =
         [ MessageSent nodeId to msg
@@ -145,86 +154,81 @@ stepResult nodeId newState outgoing logs =
           vsrLogs = logs ++ sentLogs
         }
 
--- | Extract hop-distance offers from incoming BFS messages.
-bfsCandidates :: [Message] -> [(Int, NodeId)]
+bfsCandidates :: [DistanceMsg] -> [(Int, NodeId)]
 bfsCandidates messages =
-  [ (dist + 1, from)
-    | MsgDistance from dist <- messages
+  [ (dmDistance message + 1, dmFrom message)
+    | message <- messages
   ]
 
--- | Apply the best distance offer when it strictly improves the current value.
 tryImproveDistance ::
   NodeId ->
   [(Int, NodeId)] ->
-  VertexState ->
-  VertexUpdate
+  PathState ->
+  VertexUpdate PathState msg
 tryImproveDistance _ [] _ =
   Unchanged
 tryImproveDistance nodeId candidates state =
   let (newDist, predecessor) =
         minimumBy (comparing fst <> comparing snd) candidates
-   in case vsDistance state of
+   in case psDistance state of
         Just current | newDist >= current ->
           Unchanged
         _ ->
           Updated
             ( state
-                { vsDistance = Just newDist,
-                  vsPredecessor = Just predecessor
+                { psDistance = Just newDist,
+                  psPredecessor = Just predecessor
                 }
             )
             [VertexUpdated nodeId newDist]
 
--- | Relabel a vertex when the proposed label differs from the current one.
 tryRelabel ::
   NodeId ->
   NodeId ->
-  VertexState ->
-  VertexUpdate
+  LabelState ->
+  VertexUpdate LabelState msg
 tryRelabel nodeId newLabel state =
-  let current = maybe nodeId id (vsLabel state)
-   in if newLabel == current
-        then Unchanged
-        else
-          Updated
-            (state {vsLabel = Just newLabel})
-            [VertexLabelUpdated nodeId newLabel]
+  if newLabel == lsLabel state
+    then Unchanged
+    else
+      Updated
+        (LabelState newLabel)
+        [VertexLabelUpdated nodeId newLabel]
 
-labelsFromMessages :: [Message] -> [NodeId]
+labelsFromMessages :: [LabelMsg] -> [NodeId]
 labelsFromMessages messages =
-  [ label
-    | MsgLabel label <- messages
+  [ lmLabel message
+    | message <- messages
   ]
 
 minimumWithSelf :: NodeId -> [NodeId] -> NodeId
 minimumWithSelf self labels =
   minimum (self : labels)
 
-labelBootstrap :: RunConfig -> [(NodeId, Message)]
+labelBootstrap :: RunConfig -> [(NodeId, LabelMsg)]
 labelBootstrap cfg =
   let graph = rcGraph cfg
-   in [ (to, MsgLabel nodeId)
+   in [ (to, LabelMsg nodeId)
         | nodeId <- graphNodes graph,
           (to, _) <- neighbors graph nodeId
       ]
 
-emitLabelMessages :: VertexContext -> VertexState -> [(NodeId, Message)]
+emitLabelMessages :: VertexContext -> LabelState -> [(NodeId, LabelMsg)]
 emitLabelMessages vtx state =
-  [ (to, MsgLabel label)
-    | Just label <- [vsLabel state],
-      to <- outNeighbors vtx
+  [ (to, LabelMsg (lsLabel state))
+    | to <- outNeighbors vtx
   ]
 
-pathInitState :: NodeId -> RunConfig -> VertexState
+pathInitState :: NodeId -> RunConfig -> PathState
 pathInitState nodeId cfg
   | nodeId == rcSource cfg =
-      initialVertexState {vsDistance = Just 0}
+      emptyPathState {psDistance = Just 0}
   | otherwise =
-      initialVertexState
+      emptyPathState
 
-pathBootstrap :: (Maybe Int -> Bool) -> RunConfig -> [(NodeId, Message)]
+pathBootstrap :: (Maybe Int -> Bool) -> RunConfig -> [(NodeId, DistanceMsg)]
 pathBootstrap acceptWeight cfg =
-  [ (to, MsgDistance (rcSource cfg) 0)
+  [ (to, DistanceMsg (rcSource cfg) 0)
     | (to, weight) <- neighbors (rcGraph cfg) (rcSource cfg),
       acceptWeight weight
   ]

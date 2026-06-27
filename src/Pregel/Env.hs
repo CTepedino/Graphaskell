@@ -17,11 +17,11 @@ import Graph.Types
 import Pregel.Error (PregelError (..))
 import Pregel.Types
 
-data PregelEnv = PregelEnv
-  { peQueues :: Map.Map NodeId (TQueue Message)
+data PregelEnv msg = PregelEnv
+  { peQueues :: Map.Map NodeId (TQueue msg)
   }
 
-initEnv :: Graph -> IO PregelEnv
+initEnv :: Graph -> IO (PregelEnv msg)
 initEnv graph = do
   queuePairs <-
     mapM
@@ -32,7 +32,7 @@ initEnv graph = do
       (graphNodes graph)
   pure PregelEnv {peQueues = Map.fromList queuePairs}
 
-flushQueue :: TQueue Message -> STM [Message]
+flushQueue :: TQueue msg -> STM [msg]
 flushQueue queue = go Seq.empty
   where
     go acc = do
@@ -43,11 +43,11 @@ flushQueue queue = go Seq.empty
           message <- readTQueue queue
           go (acc Seq.|> message)
 
-lookupQueue :: NodeId -> PregelEnv -> Maybe (TQueue Message)
+lookupQueue :: NodeId -> PregelEnv msg -> Maybe (TQueue msg)
 lookupQueue nodeId env =
   Map.lookup nodeId (peQueues env)
 
-flushVertexQueue :: NodeId -> PregelEnv -> STM (Either PregelError [Message])
+flushVertexQueue :: NodeId -> PregelEnv msg -> STM (Either PregelError [msg])
 flushVertexQueue nodeId env =
   case lookupQueue nodeId env of
     Just queue ->
@@ -55,7 +55,7 @@ flushVertexQueue nodeId env =
     Nothing ->
       pure (Left (MissingMessageQueue nodeId))
 
-writeQueue :: NodeId -> Message -> PregelEnv -> STM (Either PregelError ())
+writeQueue :: NodeId -> msg -> PregelEnv msg -> STM (Either PregelError ())
 writeQueue nodeId message env =
   case lookupQueue nodeId env of
     Just queue -> do
@@ -64,7 +64,7 @@ writeQueue nodeId message env =
     Nothing ->
       pure (Left (MissingMessageQueue nodeId))
 
-deliverAll :: PregelEnv -> [(NodeId, Message)] -> IO (Either PregelError ())
+deliverAll :: PregelEnv msg -> [(NodeId, msg)] -> IO (Either PregelError ())
 deliverAll env outgoing =
   atomically $
     foldM
@@ -76,7 +76,7 @@ deliverAll env outgoing =
       (Right ())
       outgoing
 
-activeVerticesSTM :: PregelEnv -> IO [NodeId]
+activeVerticesSTM :: PregelEnv msg -> IO [NodeId]
 activeVerticesSTM env =
   atomically $ do
     flags <-

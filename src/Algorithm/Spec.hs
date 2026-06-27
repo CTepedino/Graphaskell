@@ -1,5 +1,6 @@
 module Algorithm.Spec
   ( AlgorithmSpec,
+    SomeAlgorithmSpec (..),
     resolveAlgorithm,
     validatePathTarget,
   )
@@ -20,11 +21,11 @@ validatePathTarget BFS Nothing = Left MissingPathTarget
 validatePathTarget BellmanFord Nothing = Left MissingPathTarget
 validatePathTarget _ _ = Right ()
 
-resolveAlgorithm :: Graph -> Algorithm -> Either AlgorithmError AlgorithmSpec
-resolveAlgorithm _ BFS = Right bfsSpec
+resolveAlgorithm :: Graph -> Algorithm -> Either AlgorithmError SomeAlgorithmSpec
+resolveAlgorithm _ BFS = Right (SomeAlgorithmSpec bfsSpec)
 resolveAlgorithm graph BellmanFord = do
   validateWeightedGraph graph
-  pure bellmanFordSpec
-resolveAlgorithm _ PageRank = Right pageRankSpec
-resolveAlgorithm _ ConnectedComponents = Right connectedComponentsSpec
-resolveAlgorithm _ LabelPropagation = Right labelPropagationSpec
+  pure (SomeAlgorithmSpec bellmanFordSpec)
+resolveAlgorithm _ PageRank = Right (SomeAlgorithmSpec pageRankSpec)
+resolveAlgorithm _ ConnectedComponents = Right (SomeAlgorithmSpec connectedComponentsSpec)
+resolveAlgorithm _ LabelPropagation = Right (SomeAlgorithmSpec labelPropagationSpec)

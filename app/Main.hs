@@ -1,6 +1,6 @@
 module Main where
 
-import Algorithm.Spec (resolveAlgorithm, validatePathTarget)
+import Algorithm.Spec (SomeAlgorithmSpec (..), resolveAlgorithm, validatePathTarget)
 import AppError (AppError (..), displayAppError)
 import Cli.Options (Options (..), parseOptions)
 import Control.Monad.Except (ExceptT (..), runExceptT)
@@ -35,7 +35,7 @@ execute opts = runExceptT $ do
   graph <-
     exceptTWith AppLoad =<< liftIO (loadGraphFile (optGraphPath opts))
   except (first AppParse (validateRunNodes graph (optSource opts) (optTarget opts)))
-  spec <-
+  SomeAlgorithmSpec spec <-
     except (first AppAlgorithm (resolveAlgorithm graph (optAlgorithm opts)))
   let cfg =
         mkRunConfig
@@ -53,7 +53,7 @@ except = ExceptT . pure
 exceptTWith :: (e -> AppError) -> Either e a -> ExceptT AppError IO a
 exceptTWith f = ExceptT . pure . first f
 
-buildOutput :: Options -> Graph -> PregelRun -> [String]
+buildOutput :: Show msg => Options -> Graph -> PregelRun msg -> [String]
 buildOutput opts graph pregelRun =
   configBanner opts
     ++ [ "Graph loaded:",

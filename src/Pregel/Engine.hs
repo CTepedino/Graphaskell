@@ -16,7 +16,7 @@ import Pregel.Env
     flushVertexQueue,
     initEnv,
   )
-import Pregel.Error (PregelError)
+import Pregel.Error (PregelError (..))
 import Pregel.Pool (runPool)
 import Pregel.Superstep
   ( SuperstepResult (..),
@@ -31,7 +31,7 @@ mkRunConfig ::
   NodeId ->
   Maybe NodeId ->
   Int ->
-  AlgorithmSpec ->
+  AlgorithmSpec state msg ->
   RunConfig
 mkRunConfig graph source target threads spec =
   RunConfig
@@ -42,10 +42,10 @@ mkRunConfig graph source target threads spec =
       rcMaxSteps = specMaxSupersteps spec (nodeCount graph)
     }
 
-runPregel :: RunConfig -> AlgorithmSpec -> IO (Either PregelError PregelRun)
+runPregel :: RunConfig -> AlgorithmSpec state msg -> IO (Either PregelError (PregelRun msg))
 runPregel = runConcurrent
 
-runConcurrent :: RunConfig -> AlgorithmSpec -> IO (Either PregelError PregelRun)
+runConcurrent :: RunConfig -> AlgorithmSpec state msg -> IO (Either PregelError (PregelRun msg))
 runConcurrent cfg spec = do
   let graph = rcGraph cfg
       contexts = buildVertexContexts graph
@@ -58,24 +58,29 @@ runConcurrent cfg spec = do
     Right () -> do
       runResult <-
         loopConcurrent cfg spec contexts 0 initialStates env
-      pure (fmap (buildRun cfg spec) runResult)
+      pure (runResult >>= buildRun cfg spec)
   where
     buildRun cfg' spec' (finalStates, logs, steps, maxStepsReached) =
-      PregelRun
-        { prSupersteps = steps,
-          prLogs = logs,
-          prResult = specExtractResult spec' finalStates cfg',
-          prMaxStepsReached = maxStepsReached
-        }
+      case specExtractResult spec' finalStates cfg' of
+        Left algoErr ->
+          Left (ResultExtraction algoErr)
+        Right result ->
+          Right
+            PregelRun
+              { prSupersteps = steps,
+                prLogs = logs,
+                prResult = result,
+                prMaxStepsReached = maxStepsReached
+              }
 
 loopConcurrent ::
   RunConfig ->
-  AlgorithmSpec ->
+  AlgorithmSpec state msg ->
   VertexContexts ->
   Int ->
-  VertexStates ->
-  PregelEnv ->
-  IO (Either PregelError (VertexStates, [SuperstepLog], Int, Bool))
+  VertexStates state ->
+  PregelEnv msg ->
+  IO (Either PregelError (VertexStates state, [SuperstepLog msg], Int, Bool))
 loopConcurrent cfg spec contexts step states env
   | step >= rcMaxSteps cfg =
       pure (Right (states, [], step, True))

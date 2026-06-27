@@ -1,54 +1,48 @@
 module Pregel.Types
-  ( Message (..),
-    VertexState (..),
+  ( DistanceMsg (..),
+    LabelMsg (..),
+    RankMsg (..),
     LogEntry (..),
     logEntrySortKey,
     SuperstepLog (..),
     PregelRun (..),
+    SomePregelRun (..),
+    somePregelResult,
     Result (..),
-    InputError (..),
     RunConfig (..),
     VertexStepResult (..),
     VertexStates,
     MessageQueues,
-    initialVertexState,
   )
 where
 
 import Data.Map.Strict (Map)
 import Graph.Types
 
-data Message
-  = MsgDistance NodeId Int
-  | MsgLabel NodeId
-  | MsgRank Double
-  deriving (Eq, Show)
-
-data VertexState = VertexState
-  { vsDistance :: Maybe Int,
-    vsPredecessor :: Maybe NodeId,
-    vsLabel :: Maybe NodeId,
-    vsRank :: Maybe Double
+data DistanceMsg = DistanceMsg
+  { dmFrom :: NodeId,
+    dmDistance :: Int
   }
   deriving (Eq, Show)
 
-initialVertexState :: VertexState
-initialVertexState =
-  VertexState
-    { vsDistance = Nothing,
-      vsPredecessor = Nothing,
-      vsLabel = Nothing,
-      vsRank = Nothing
-    }
+data LabelMsg = LabelMsg
+  { lmLabel :: NodeId
+  }
+  deriving (Eq, Show)
 
-data LogEntry
+data RankMsg = RankMsg
+  { rmRank :: Double
+  }
+  deriving (Eq, Show)
+
+data LogEntry msg
   = VertexUpdated NodeId Int
   | VertexLabelUpdated NodeId NodeId
   | VertexRankUpdated NodeId Double
-  | MessageSent NodeId NodeId Message
+  | MessageSent NodeId NodeId msg
   deriving (Eq, Show)
 
-logEntrySortKey :: LogEntry -> (Int, Int, Int)
+logEntrySortKey :: LogEntry msg -> (Int, Int, Int)
 logEntrySortKey entry =
   case entry of
     VertexUpdated nodeId _ ->
@@ -60,11 +54,11 @@ logEntrySortKey entry =
     MessageSent from to _ ->
       (3, from, to)
 
-data SuperstepLog = SuperstepLog
+data SuperstepLog msg = SuperstepLog
   { sslStep :: Int,
     sslActiveVertices :: Int,
     sslMessagesSent :: Int,
-    sslEntries :: [LogEntry]
+    sslEntries :: [LogEntry msg]
   }
   deriving (Eq, Show)
 
@@ -74,21 +68,22 @@ data Result
   | Components [(NodeId, [NodeId])]
   | Rankings [(NodeId, Double)]
   | NodeLabels [(NodeId, NodeId)]
-  | InputError InputError
   deriving (Eq, Show)
 
-data PregelRun = PregelRun
+data PregelRun msg = PregelRun
   { prSupersteps :: Int,
-    prLogs :: [SuperstepLog],
+    prLogs :: [SuperstepLog msg],
     prResult :: Result,
     prMaxStepsReached :: Bool
   }
   deriving (Eq, Show)
 
-data InputError
-  = MissingTarget
-  | TargetNodeMissing NodeId
-  deriving (Eq, Show)
+data SomePregelRun where
+  SomePregelRun :: Show msg => PregelRun msg -> SomePregelRun
+
+somePregelResult :: SomePregelRun -> Result
+somePregelResult (SomePregelRun run) =
+  prResult run
 
 data RunConfig = RunConfig
   { rcGraph :: Graph,
@@ -99,13 +94,13 @@ data RunConfig = RunConfig
   }
   deriving (Eq, Show)
 
-data VertexStepResult = VertexStepResult
-  { vsrState :: VertexState,
-    vsrOutgoing :: [(NodeId, Message)],
-    vsrLogs :: [LogEntry]
+data VertexStepResult state msg = VertexStepResult
+  { vsrState :: state,
+    vsrOutgoing :: [(NodeId, msg)],
+    vsrLogs :: [LogEntry msg]
   }
   deriving (Eq, Show)
 
-type VertexStates = Map NodeId VertexState
+type VertexStates state = Map NodeId state
 
-type MessageQueues = Map NodeId [Message]
+type MessageQueues msg = Map NodeId [msg]

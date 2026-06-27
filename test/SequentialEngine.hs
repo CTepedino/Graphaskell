@@ -1,13 +1,13 @@
 module SequentialEngine
   ( runSequential,
+    runSomeSequential,
   )
 where
 
-import Algorithm.Types (AlgorithmSpec (..))
+import Algorithm.Types (AlgorithmSpec (..), SomeAlgorithmSpec (..))
 import qualified Data.Map.Strict as Map
 import Graph.VertexContext (VertexContexts, buildVertexContexts)
-import Pregel.Types
-import Pregel.Error (PregelError)
+import Pregel.Error (PregelError (..))
 import Pregel.Superstep
   ( SuperstepResult (..),
     activeVerticesWithMessages,
@@ -18,7 +18,11 @@ import Pregel.Superstep
   )
 import Pregel.Types
 
-runSequential :: RunConfig -> AlgorithmSpec -> Either PregelError PregelRun
+runSomeSequential :: RunConfig -> SomeAlgorithmSpec -> Either PregelError SomePregelRun
+runSomeSequential cfg (SomeAlgorithmSpec spec) =
+  fmap SomePregelRun (runSequential cfg spec)
+
+runSequential :: RunConfig -> AlgorithmSpec state msg -> Either PregelError (PregelRun msg)
 runSequential cfg spec = do
   let graph = rcGraph cfg
       contexts = buildVertexContexts graph
@@ -26,22 +30,26 @@ runSequential cfg spec = do
       initialQueues = enqueueMessages Map.empty (specBootstrap spec cfg)
   (finalStates, logs, steps, maxStepsReached) <-
     loop contexts spec cfg 0 initialStates initialQueues
-  pure
-    PregelRun
-      { prSupersteps = steps,
-        prLogs = logs,
-        prResult = specExtractResult spec finalStates cfg,
-        prMaxStepsReached = maxStepsReached
-      }
+  case specExtractResult spec finalStates cfg of
+    Left algoErr ->
+      Left (ResultExtraction algoErr)
+    Right result ->
+      pure
+        PregelRun
+          { prSupersteps = steps,
+            prLogs = logs,
+            prResult = result,
+            prMaxStepsReached = maxStepsReached
+          }
 
 loop ::
   VertexContexts ->
-  AlgorithmSpec ->
+  AlgorithmSpec state msg ->
   RunConfig ->
   Int ->
-  VertexStates ->
-  MessageQueues ->
-  Either PregelError (VertexStates, [SuperstepLog], Int, Bool)
+  VertexStates state ->
+  MessageQueues msg ->
+  Either PregelError (VertexStates state, [SuperstepLog msg], Int, Bool)
 loop contexts spec cfg step states queues
   | step >= rcMaxSteps cfg =
       pure (states, [], step, True)

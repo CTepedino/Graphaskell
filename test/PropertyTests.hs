@@ -1,6 +1,6 @@
 module PropertyTests (propertyTests) where
 
-import Algorithm.Types (AlgorithmSpec (..))
+import Algorithm.Types (AlgorithmSpec (..), SomeAlgorithmSpec (..))
 import Fixtures
   ( parseFixture,
     requireRight,
@@ -12,7 +12,7 @@ import Fixtures
 import Graph.Parser (parseGraphFile)
 import Graph.Types (Algorithm (..), nodeCount)
 import Pregel.Engine (mkRunConfig)
-import Pregel.Types (PregelRun (..), Result (..))
+import Pregel.Types (PregelRun (..), Result (..), somePregelResult)
 import SequentialEngine (runSequential)
 import Test.HUnit (Test (..), (~:), assertFailure)
 import Test.QuickCheck
@@ -49,26 +49,26 @@ check prop = do
 
 prop_sequentialDeterministic :: Property
 prop_sequentialDeterministic =
-  let graph = parseFixture simpleGraphText
-      spec = resolveFixture ConnectedComponents graph
-      cfg = mkRunConfig graph 0 Nothing 1 spec
-      first = requireRight (runSequential cfg spec)
-      second = requireRight (runSequential cfg spec)
-   in prResult first === prResult second
+  case resolveFixture ConnectedComponents (parseFixture simpleGraphText) of
+    SomeAlgorithmSpec spec ->
+      let cfg = mkRunConfig (parseFixture simpleGraphText) 0 Nothing 1 spec
+          first = requireRight (runSequential cfg spec)
+          second = requireRight (runSequential cfg spec)
+       in prResult first === prResult second
 
 prop_bfsPathUsesEdges :: Property
 prop_bfsPathUsesEdges =
   property $
     let graph = parseFixture simpleGraphText
         run = runFixture BFS 0 (Just 4) simpleGraphText
-     in case prResult run of
+     in case somePregelResult run of
           PathFound path _ -> validPath graph path
           _ -> True
 
 prop_bfsDistanceMatchesPathLength :: Property
 prop_bfsDistanceMatchesPathLength =
   property $
-    case prResult (runFixture BFS 0 (Just 4) simpleGraphText) of
+    case somePregelResult (runFixture BFS 0 (Just 4) simpleGraphText) of
       PathFound path dist -> dist + 1 == length path
       _ -> True
 
@@ -97,4 +97,9 @@ prop_maxSuperstepsPositive =
             resolveFixture ConnectedComponents simple,
             resolveFixture LabelPropagation simple
           ]
-     in all (\spec -> specMaxSupersteps spec nodeTotal > 0) specs
+     in all
+          ( \someSpec ->
+              case someSpec of
+                SomeAlgorithmSpec spec -> specMaxSupersteps spec nodeTotal > 0
+          )
+          specs

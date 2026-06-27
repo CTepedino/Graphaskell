@@ -13,15 +13,17 @@ import Algorithm.Common
     runVertexUpdate,
     tryImproveDistance,
   )
+import Algorithm.State (PathState (..), emptyPathState)
 import Algorithm.Types (AlgorithmSpec (..))
 import Graph.Types (NodeId)
 import Graph.VertexContext (VertexContext (..), outNeighbors)
 import Pregel.Types
 
-bfsSpec :: AlgorithmSpec
+bfsSpec :: AlgorithmSpec PathState DistanceMsg
 bfsSpec =
   AlgorithmSpec
     { specInitState = pathInitState,
+      specDefaultState = emptyPathState,
       specBootstrap = pathBootstrap (const True),
       specVertexUpdate = vertexUpdate,
       specExtractResult = extractPathResult,
@@ -30,20 +32,20 @@ bfsSpec =
 
 vertexUpdate ::
   VertexContext ->
-  VertexState ->
-  [Message] ->
-  VertexStepResult
+  PathState ->
+  [DistanceMsg] ->
+  VertexStepResult PathState DistanceMsg
 vertexUpdate vtx state messages =
   runVertexUpdate vtx state messages (bfsUpdate (vcNodeId vtx)) emitOutgoing
 
-bfsUpdate :: NodeId -> [Message] -> VertexState -> VertexUpdate
+bfsUpdate :: NodeId -> [DistanceMsg] -> PathState -> VertexUpdate PathState DistanceMsg
 bfsUpdate nodeId messages = tryImproveDistance nodeId (bfsCandidates messages)
 
-emitOutgoing :: VertexContext -> VertexState -> [(NodeId, Message)]
+emitOutgoing :: VertexContext -> PathState -> [(NodeId, DistanceMsg)]
 emitOutgoing vtx state =
-  case vsDistance state of
+  case psDistance state of
     Nothing -> []
     Just dist ->
-      [ (to, MsgDistance (vcNodeId vtx) dist)
+      [ (to, DistanceMsg (vcNodeId vtx) dist)
         | to <- outNeighbors vtx
       ]

@@ -27,6 +27,7 @@ library
         Algorithm.LabelPropagation,
         Algorithm.PageRank,
         Algorithm.Spec,
+        Algorithm.State,
         Algorithm.Types,
         Cli.Error,
         Cli.Options,

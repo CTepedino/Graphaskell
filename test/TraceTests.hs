@@ -5,7 +5,14 @@ import Fixtures (disconnectedGraphText, runFixture)
 import Graph.Types (Algorithm (..))
 import Output.Trace (describeRun)
 import Pregel.Types
-import Pregel.Types
+  ( DistanceMsg (..),
+    LogEntry (..),
+    PregelRun (..),
+    RankMsg (..),
+    Result (..),
+    SomePregelRun (..),
+    SuperstepLog (..),
+  )
 import Test.HUnit
 import TestSupport (assertComponentsListed)
 
@@ -25,11 +32,12 @@ traceTests =
         assertBool "shows limit warning" $
           "maximum superstep limit reached" `isInfixOf` output,
       "describeRun formats connected components" ~: do
-        let run = runFixture ConnectedComponents 0 Nothing disconnectedGraphText
-            output = describeRun False run
-        assertComponentsListed "Result: connected components" output
-        assertComponentsListed "component 0: [0,1]" output
-        assertComponentsListed "component 2: [2,3]" output,
+        case runFixture ConnectedComponents 0 Nothing disconnectedGraphText of
+          SomePregelRun run -> do
+            let output = describeRun False run
+            assertComponentsListed "Result: connected components" output
+            assertComponentsListed "component 0: [0,1]" output
+            assertComponentsListed "component 2: [2,3]" output,
       "describeRun formats PageRank rankings" ~: do
         let output = describeRun False pageRankRun
         assertBool "shows PageRank header" $
@@ -42,7 +50,7 @@ traceTests =
           "no path between source and target" `isInfixOf` output
     ]
 
-sampleRun :: PregelRun
+sampleRun :: PregelRun DistanceMsg
 sampleRun =
   PregelRun
     { prSupersteps = 1,
@@ -53,7 +61,7 @@ sampleRun =
               sslMessagesSent = 1,
               sslEntries =
                 [ VertexUpdated 0 1,
-                  MessageSent 0 1 (MsgDistance 0 0)
+                  MessageSent 0 1 (DistanceMsg 0 0)
                 ]
             }
         ],
@@ -61,19 +69,22 @@ sampleRun =
       prMaxStepsReached = False
     }
 
-maxStepsRun :: PregelRun
+maxStepsRun :: PregelRun DistanceMsg
 maxStepsRun =
   sampleRun
     { prMaxStepsReached = True,
       prSupersteps = 25
     }
 
-pageRankRun :: PregelRun
+pageRankRun :: PregelRun RankMsg
 pageRankRun =
-  sampleRun
-    { prResult = Rankings [(0, 0.1), (1, 0.2), (2, 0.3), (3, 0.4)]
+  PregelRun
+    { prSupersteps = 1,
+      prLogs = [],
+      prResult = Rankings [(0, 0.1), (1, 0.2), (2, 0.3), (3, 0.4)],
+      prMaxStepsReached = False
     }
 
-noPathRun :: PregelRun
+noPathRun :: PregelRun DistanceMsg
 noPathRun =
   sampleRun {prResult = NoPath}
