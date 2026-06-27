@@ -15,5 +15,6 @@ data AlgorithmSpec = AlgorithmSpec
       VertexState ->
       [Message] ->
       VertexStepResult,
-    specExtractResult :: VertexStates -> RunConfig -> Result
+    specExtractResult :: VertexStates -> RunConfig -> Result,
+    specMaxSupersteps :: Int -> Int
   }

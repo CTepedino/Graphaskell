@@ -12,8 +12,8 @@ import Fixtures
     weightedGraphText,
   )
 import Graph.Types (Algorithm (..))
-import Pregel.Engine (PregelRun (..), mkRunConfig)
-import Pregel.Types (InputError (..), Result (..))
+import Pregel.Engine (mkRunConfig)
+import Pregel.Types (InputError (..), PregelRun (..), Result (..))
 import Test.HUnit
 import TestSupport
   ( assertEnginesAgree,
@@ -63,23 +63,23 @@ algorithmTests =
         let run = runFixture LabelPropagation 0 Nothing simpleGraphText
         prResult run @?= NodeLabels labelPropagationExpected,
       "sequential and concurrent engines agree on BFS" ~:
-        assertEnginesAgree
-          (mkRunConfig (parseFixture simpleGraphText) 0 (Just 4) 4)
-          (resolveFixture BFS (parseFixture simpleGraphText)),
+        let graph = parseFixture simpleGraphText
+            spec = resolveFixture BFS graph
+         in assertEnginesAgree (mkRunConfig graph 0 (Just 4) 4 spec) spec,
       "sequential and concurrent engines agree on Bellman-Ford" ~:
-        assertEnginesAgree
-          (mkRunConfig (parseFixture weightedGraphText) 0 (Just 3) 1)
-          (resolveFixture BellmanFord (parseFixture weightedGraphText)),
+        let graph = parseFixture weightedGraphText
+            spec = resolveFixture BellmanFord graph
+         in assertEnginesAgree (mkRunConfig graph 0 (Just 3) 1 spec) spec,
       "sequential and concurrent engines agree on connected components" ~:
-        assertEnginesAgree
-          (mkRunConfig (parseFixture disconnectedGraphText) 0 Nothing 2)
-          (resolveFixture ConnectedComponents (parseFixture disconnectedGraphText)),
+        let graph = parseFixture disconnectedGraphText
+            spec = resolveFixture ConnectedComponents graph
+         in assertEnginesAgree (mkRunConfig graph 0 Nothing 2 spec) spec,
       "sequential and concurrent engines agree on PageRank" ~:
-        assertEnginesAgree
-          (mkRunConfig (parseFixture pageRankGraphText) 0 Nothing 2)
-          (resolveFixture PageRank (parseFixture pageRankGraphText)),
+        let graph = parseFixture pageRankGraphText
+            spec = resolveFixture PageRank graph
+         in assertEnginesAgree (mkRunConfig graph 0 Nothing 2 spec) spec,
       "sequential and concurrent engines agree on label propagation" ~:
-        assertEnginesAgree
-          (mkRunConfig (parseFixture simpleGraphText) 0 Nothing 2)
-          (resolveFixture LabelPropagation (parseFixture simpleGraphText))
+        let graph = parseFixture simpleGraphText
+            spec = resolveFixture LabelPropagation graph
+         in assertEnginesAgree (mkRunConfig graph 0 Nothing 2 spec) spec
     ]

@@ -9,10 +9,11 @@ module Graph.Parser
 where
 
 import Control.Exception (IOException, try)
-import Control.Monad ((<=<), foldM, when)
+import Control.Monad ((<=<), foldM)
 import Data.Char (isSpace)
 import Data.Foldable (traverse_)
 import Graph.ParseError
+import Graph.Reading (readNonNegativeInt, readPositiveInt)
 import Graph.Types
 
 data LoadGraphError
@@ -116,7 +117,7 @@ parseEdgeLine st ws
           to <- parseNodeId CtxEdgeTo toStr
           weight <- parsePositive CtxEdgeWeight weightStr
           let edge = Edge from to (Just weight)
-          Right st {psEdges = psEdges st ++ [edge]}
+          Right st {psEdges = edge : psEdges st}
         _ -> Left InvalidWeightedEdge
   | otherwise =
       case ws of
@@ -124,7 +125,7 @@ parseEdgeLine st ws
           from <- parseNodeId CtxEdgeFrom fromStr
           to <- parseNodeId CtxEdgeTo toStr
           let edge = Edge from to Nothing
-          Right st {psEdges = psEdges st ++ [edge]}
+          Right st {psEdges = edge : psEdges st}
         [_, _, _] ->
           Left (WeightOnUnweightedGraph (unwords ws))
         _ -> Left InvalidUnweightedEdge
@@ -133,13 +134,15 @@ finalize :: ParseState -> Either ParseError Graph
 finalize st = do
   nodeTotal <-
     maybe (Left (MissingDirective DirNodes)) Right (psNodeCount st)
-  when (null (psEdges st)) $
-    Left NoEdges
-  let graph = buildGraph nodeTotal (psEdges st)
-  mapM_ (validateEdge graph) (psEdges st)
-  when (psWeighted st && any (== Nothing) (map edgeWeight (psEdges st))) $
-    Left WeightedModeMismatch
-  pure graph
+  if null (psEdges st)
+    then Left NoEdges
+    else do
+      let edges = reverse (psEdges st)
+          graph = buildGraph nodeTotal edges
+      mapM_ (validateEdge graph) edges
+      if psWeighted st && any (== Nothing) (map edgeWeight edges)
+        then Left WeightedModeMismatch
+        else pure graph
 
 validateNode :: Graph -> ParseContext -> NodeId -> Either ParseError ()
 validateNode graph ctx nodeId
@@ -154,15 +157,15 @@ validateEdge graph edge = do
 
 parsePositive :: ParseContext -> String -> Either ParseError Int
 parsePositive ctx raw =
-  case reads raw of
-    [(n, "")] | n > 0 -> Right n
-    _ -> Left (InvalidPositiveInteger ctx raw)
+  case readPositiveInt raw of
+    Left _ -> Left (InvalidPositiveInteger ctx raw)
+    Right n -> Right n
 
 parseNodeId :: ParseContext -> String -> Either ParseError NodeId
 parseNodeId ctx raw =
-  case reads raw of
-    [(n, "")] | n >= 0 -> Right n
-    _ -> Left (InvalidNodeId ctx raw)
+  case readNonNegativeInt raw of
+    Left _ -> Left (InvalidNodeId ctx raw)
+    Right n -> Right n
 
 adjSummary :: Graph -> String
 adjSummary graph =

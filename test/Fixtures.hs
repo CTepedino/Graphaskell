@@ -4,16 +4,20 @@ module Fixtures
     disconnectedGraphText,
     pageRankGraphText,
     parseFixture,
+    parseFixtureEither,
     runFixture,
     resolveFixture,
+    requireRight,
   )
 where
 
 import Algorithm.Spec (resolveAlgorithm)
 import Algorithm.Types (AlgorithmSpec)
+import Graph.ParseError (ParseError)
 import Graph.Parser (parseGraphFile)
 import Graph.Types (Algorithm (..), Graph, NodeId)
-import Pregel.Engine (PregelRun, mkRunConfig)
+import Pregel.Engine (mkRunConfig)
+import Pregel.Types (PregelRun)
 import SequentialEngine (runSequential)
 
 simpleGraphText :: String
@@ -61,17 +65,22 @@ pageRankGraphText =
       "1 3"
     ]
 
+requireRight :: Show e => Either e a -> a
+requireRight (Right value) = value
+requireRight (Left err) =
+  error ("requireRight: " ++ show err)
+
+parseFixtureEither :: String -> Either ParseError Graph
+parseFixtureEither =
+  parseGraphFile
+
 parseFixture :: String -> Graph
-parseFixture text =
-  case parseGraphFile text of
-    Left parseError -> error ("parseFixture: " ++ show parseError)
-    Right graph -> graph
+parseFixture =
+  requireRight . parseFixtureEither
 
 resolveFixture :: Algorithm -> Graph -> AlgorithmSpec
 resolveFixture algorithm graph =
-  case resolveAlgorithm graph algorithm of
-    Left algorithmError -> error ("resolveFixture: " ++ show algorithmError)
-    Right spec -> spec
+  requireRight (resolveAlgorithm graph algorithm)
 
 runFixture ::
   Algorithm ->
@@ -82,5 +91,5 @@ runFixture ::
 runFixture algorithm source target text =
   let graph = parseFixture text
       spec = resolveFixture algorithm graph
-      cfg = mkRunConfig graph source target 1
-   in runSequential cfg spec
+      cfg = mkRunConfig graph source target 1 spec
+   in requireRight (runSequential cfg spec)

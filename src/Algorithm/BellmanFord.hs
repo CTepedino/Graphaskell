@@ -3,10 +3,18 @@ module Algorithm.BellmanFord
   )
 where
 
-import Algorithm.Common (VertexUpdate, extractPathResult, runVertexUpdate, tryImproveDistance)
+import Algorithm.Common
+  ( VertexUpdate,
+    extractPathResult,
+    pathBootstrap,
+    pathInitState,
+    pathMaxSupersteps,
+    runVertexUpdate,
+    tryImproveDistance,
+  )
 import Algorithm.Types (AlgorithmSpec (..))
-import Data.Maybe (mapMaybe)
-import Graph.Types
+import Data.Maybe (isJust, mapMaybe)
+import Graph.Types (NodeId)
 import Graph.VertexContext
   ( VertexContext (..),
     lookupIncomingWeight,
@@ -17,24 +25,12 @@ import Pregel.Types
 bellmanFordSpec :: AlgorithmSpec
 bellmanFordSpec =
   AlgorithmSpec
-    { specInitState = initState,
-      specBootstrap = bootstrap,
+    { specInitState = pathInitState,
+      specBootstrap = pathBootstrap isJust,
       specVertexUpdate = vertexUpdate,
-      specExtractResult = extractPathResult
+      specExtractResult = extractPathResult,
+      specMaxSupersteps = pathMaxSupersteps
     }
-
-initState :: NodeId -> RunConfig -> VertexState
-initState nodeId cfg
-  | nodeId == rcSource cfg =
-      initialVertexState {vsDistance = Just 0}
-  | otherwise =
-      initialVertexState
-
-bootstrap :: RunConfig -> [(NodeId, Message)]
-bootstrap cfg =
-  [ (to, MsgDistance (rcSource cfg) 0)
-    | (to, Just _) <- neighbors (rcGraph cfg) (rcSource cfg)
-  ]
 
 vertexUpdate ::
   VertexContext ->
@@ -46,8 +42,8 @@ vertexUpdate vtx state messages =
 
 bellmanFordUpdate :: VertexContext -> [Message] -> VertexState -> VertexUpdate
 bellmanFordUpdate vtx messages = tryImproveDistance
-    (vcNodeId vtx)
-    (mapMaybe (weightedCandidate vtx) messages)
+  (vcNodeId vtx)
+  (mapMaybe (weightedCandidate vtx) messages)
 
 weightedCandidate :: VertexContext -> Message -> Maybe (Int, NodeId)
 weightedCandidate _ (MsgLabel _) = Nothing

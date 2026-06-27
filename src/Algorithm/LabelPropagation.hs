@@ -7,6 +7,7 @@ import Algorithm.Common
   ( VertexUpdate (..),
     extractLabelResult,
     labelBootstrap,
+    labelMaxSupersteps,
     runVertexUpdate,
     tryRelabel,
     emitLabelMessages,
@@ -24,7 +25,8 @@ labelPropagationSpec =
     { specInitState = initState,
       specBootstrap = bootstrap,
       specVertexUpdate = vertexUpdate,
-      specExtractResult = extractLabelResult
+      specExtractResult = extractLabelResult,
+      specMaxSupersteps = labelMaxSupersteps
     }
 
 initState :: NodeId -> RunConfig -> VertexState

@@ -8,6 +8,7 @@ import Algorithm.Common
     emitLabelMessages,
     extractComponentResult,
     labelBootstrap,
+    labelMaxSupersteps,
     labelsFromMessages,
     minimumWithSelf,
     runVertexUpdate,
@@ -24,7 +25,8 @@ connectedComponentsSpec =
     { specInitState = initState,
       specBootstrap = bootstrap,
       specVertexUpdate = vertexUpdate,
-      specExtractResult = extractComponentResult
+      specExtractResult = extractComponentResult,
+      specMaxSupersteps = labelMaxSupersteps
     }
 
 initState :: NodeId -> RunConfig -> VertexState

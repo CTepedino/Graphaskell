@@ -2,7 +2,9 @@ module Pregel.Types
   ( Message (..),
     VertexState (..),
     LogEntry (..),
+    logEntrySortKey,
     SuperstepLog (..),
+    PregelRun (..),
     Result (..),
     InputError (..),
     RunConfig (..),
@@ -46,10 +48,6 @@ data LogEntry
   | MessageSent NodeId NodeId Message
   deriving (Eq, Show)
 
-instance Ord LogEntry where
-  compare left right =
-    compare (logEntrySortKey left) (logEntrySortKey right)
-
 logEntrySortKey :: LogEntry -> (Int, Int, Int)
 logEntrySortKey entry =
   case entry of
@@ -77,6 +75,14 @@ data Result
   | Rankings [(NodeId, Double)]
   | NodeLabels [(NodeId, NodeId)]
   | InputError InputError
+  deriving (Eq, Show)
+
+data PregelRun = PregelRun
+  { prSupersteps :: Int,
+    prLogs :: [SuperstepLog],
+    prResult :: Result,
+    prMaxStepsReached :: Bool
+  }
   deriving (Eq, Show)
 
 data InputError

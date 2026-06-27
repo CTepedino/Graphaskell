@@ -3,8 +3,8 @@ module Output.Trace
   )
 where
 
-import Data.List (sort)
-import Pregel.Engine (PregelRun (..))
+import Data.List (sortBy)
+import Data.Ord (comparing)
 import Pregel.Types
 
 describeRun :: Bool -> PregelRun -> String
@@ -48,7 +48,7 @@ describeSuperstep verbose stepLog =
 
 sortedEntries :: SuperstepLog -> [LogEntry]
 sortedEntries stepLog =
-  sort (sslEntries stepLog)
+  sortBy (comparing logEntrySortKey) (sslEntries stepLog)
 
 describeLogEntry :: LogEntry -> String
 describeLogEntry entry =

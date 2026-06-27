@@ -4,9 +4,11 @@ module Cli.Options
   )
 where
 
+import Cli.Error (CliError (..), displayCliError)
 import Control.Concurrent (getNumCapabilities)
-import Control.Monad (when)
+import Data.Bifunctor (first)
 import Data.Char (toUpper)
+import Graph.Reading (readNonNegativeInt)
 import Graph.Types (Algorithm (..), NodeId)
 import Options.Applicative
 import System.Exit (die)
@@ -22,13 +24,11 @@ data Options = Options
   }
   deriving (Eq, Show)
 
-parseNodeIdOpt :: String -> Either String NodeId
+parseNodeIdOpt :: String -> Either CliError NodeId
 parseNodeIdOpt raw =
-  case reads raw of
-    [(n, "")] | n >= 0 -> Right n
-    _ -> Left ("must be an integer >= 0: " ++ raw)
+  first (InvalidNodeId . ("--source/--target: " ++)) (readNonNegativeInt raw)
 
-parseAlgorithmOpt :: String -> Either String Algorithm
+parseAlgorithmOpt :: String -> Either CliError Algorithm
 parseAlgorithmOpt raw =
   case map toUpper raw of
     "BFS" -> Right BFS
@@ -42,10 +42,25 @@ parseAlgorithmOpt raw =
     "LP" -> Right LabelPropagation
     _ ->
       Left
-        ( "unknown algorithm: "
-            ++ raw
-            ++ " (use BFS, BELLMANFORD, PAGERANK, CC, LP)"
+        ( UnknownAlgorithm
+            ( "unknown algorithm: "
+                ++ raw
+                ++ " (use BFS, BELLMANFORD, PAGERANK, CC, LP)"
+            )
         )
+
+validateThreads :: Int -> Int -> Either CliError Int
+validateThreads maxThreads threads
+  | threads < 1 =
+      Left ThreadsTooLow
+  | threads > maxThreads =
+      Left (ThreadsExceedCapabilities threads maxThreads)
+  | otherwise =
+      Right threads
+
+cliReader :: (String -> Either CliError a) -> ReadM a
+cliReader parser =
+  eitherReader (first displayCliError . parser)
 
 rawParser ::
   Parser
@@ -65,7 +80,7 @@ rawParser =
           <> help "Path to the graph file (graph definition only)"
       )
     <*> option
-      (eitherReader parseNodeIdOpt)
+      (cliReader parseNodeIdOpt)
       ( long "source"
           <> short 's'
           <> metavar "NODE"
@@ -73,7 +88,7 @@ rawParser =
       )
     <*> optional
       ( option
-          (eitherReader parseNodeIdOpt)
+          (cliReader parseNodeIdOpt)
           ( long "target"
               <> short 't'
               <> metavar "NODE"
@@ -81,7 +96,7 @@ rawParser =
           )
       )
     <*> option
-      (eitherReader parseAlgorithmOpt)
+      (cliReader parseAlgorithmOpt)
       ( long "algorithm"
           <> short 'a'
           <> metavar "ALG"
@@ -117,16 +132,10 @@ parseOptions = do
                 \ are specified via CLI flags."
           )
       )
-  let threads = maybe maxThreads id mThreads
-  when (threads < 1) $
-    die "Error: --threads must be at least 1"
-  when (threads > maxThreads) $
-    die $
-      unwords
-        [ "Error: --threads cannot exceed RTS capabilities",
-          "(" ++ show maxThreads ++ ").",
-          "Use +RTS -N" ++ show threads ++ " -RTS to increase them."
-        ]
+  threads <-
+    case validateThreads maxThreads (maybe maxThreads id mThreads) of
+      Left err -> die (displayCliError err)
+      Right threadCount -> pure threadCount
   pure
     Options
       { optThreads = threads,

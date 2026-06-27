@@ -7,35 +7,26 @@ import Algorithm.Common
   ( VertexUpdate (..),
     extractPathResult,
     bfsCandidates,
+    pathBootstrap,
+    pathInitState,
+    pathMaxSupersteps,
     runVertexUpdate,
     tryImproveDistance,
   )
 import Algorithm.Types (AlgorithmSpec (..))
-import Graph.Types
+import Graph.Types (NodeId)
 import Graph.VertexContext (VertexContext (..), outNeighbors)
 import Pregel.Types
 
 bfsSpec :: AlgorithmSpec
 bfsSpec =
   AlgorithmSpec
-    { specInitState = initState,
-      specBootstrap = bootstrap,
+    { specInitState = pathInitState,
+      specBootstrap = pathBootstrap (const True),
       specVertexUpdate = vertexUpdate,
-      specExtractResult = extractPathResult
+      specExtractResult = extractPathResult,
+      specMaxSupersteps = pathMaxSupersteps
     }
-
-initState :: NodeId -> RunConfig -> VertexState
-initState nodeId cfg
-  | nodeId == rcSource cfg =
-      initialVertexState {vsDistance = Just 0}
-  | otherwise =
-      initialVertexState
-
-bootstrap :: RunConfig -> [(NodeId, Message)]
-bootstrap cfg =
-  [ (to, MsgDistance (rcSource cfg) 0)
-    | (to, _) <- neighbors (rcGraph cfg) (rcSource cfg)
-  ]
 
 vertexUpdate ::
   VertexContext ->

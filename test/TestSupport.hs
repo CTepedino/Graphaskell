@@ -7,6 +7,7 @@ module TestSupport
     labelPropagationExpected,
     pageRankExpected,
     readExampleGraph,
+    validPath,
   )
 where
 
@@ -14,8 +15,8 @@ import Algorithm.Types (AlgorithmSpec)
 import Data.List (isInfixOf)
 import Graph.Parser (parseGraphFile)
 import Graph.Types (Graph, NodeId, neighbors)
-import Pregel.Engine (PregelRun (..), runPregel)
-import Pregel.Types (RunConfig, Result (..))
+import Pregel.Engine (runPregel)
+import Pregel.Types (PregelRun (..), Result (..), RunConfig)
 import SequentialEngine (runSequential)
 import System.Directory (doesFileExist)
 import Test.HUnit (Assertion, (@?=), assertBool, assertFailure)
@@ -41,7 +42,13 @@ assertEnginesAgree :: RunConfig -> AlgorithmSpec -> IO Assertion
 assertEnginesAgree cfg spec = do
   let sequential = runSequential cfg spec
   concurrent <- runPregel cfg spec
-  pure (prResult sequential @?= prResult concurrent)
+  case (sequential, concurrent) of
+    (Right seqRun, Right concRun) ->
+      pure (prResult seqRun @?= prResult concRun)
+    (Left err, _) ->
+      assertFailure ("sequential engine failed: " ++ show err)
+    (_, Left err) ->
+      assertFailure ("concurrent engine failed: " ++ show err)
 
 assertRankingsApprox :: Double -> [(NodeId, Double)] -> Result -> Assertion
 assertRankingsApprox epsilon expected result =

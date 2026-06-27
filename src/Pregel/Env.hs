@@ -2,17 +2,19 @@ module Pregel.Env
   ( PregelEnv (..),
     initEnv,
     flushQueue,
+    flushVertexQueue,
     deliverAll,
     activeVerticesSTM,
   )
 where
 
 import Control.Concurrent.STM
-import Control.Monad (foldM, forM_)
+import Control.Monad (foldM, forM)
 import Data.Foldable (toList)
 import qualified Data.Map.Strict as Map
 import qualified Data.Sequence as Seq
 import Graph.Types
+import Pregel.Error (PregelError (..))
 import Pregel.Types
 
 data PregelEnv = PregelEnv
@@ -41,20 +43,44 @@ flushQueue queue = go Seq.empty
           message <- readTQueue queue
           go (acc Seq.|> message)
 
-deliverAll :: PregelEnv -> [(NodeId, Message)] -> IO ()
+lookupQueue :: NodeId -> PregelEnv -> Maybe (TQueue Message)
+lookupQueue nodeId env =
+  Map.lookup nodeId (peQueues env)
+
+flushVertexQueue :: NodeId -> PregelEnv -> STM (Either PregelError [Message])
+flushVertexQueue nodeId env =
+  case lookupQueue nodeId env of
+    Just queue ->
+      fmap Right (flushQueue queue)
+    Nothing ->
+      pure (Left (MissingMessageQueue nodeId))
+
+writeQueue :: NodeId -> Message -> PregelEnv -> STM (Either PregelError ())
+writeQueue nodeId message env =
+  case lookupQueue nodeId env of
+    Just queue -> do
+      writeTQueue queue message
+      pure (Right ())
+    Nothing ->
+      pure (Left (MissingMessageQueue nodeId))
+
+deliverAll :: PregelEnv -> [(NodeId, Message)] -> IO (Either PregelError ())
 deliverAll env outgoing =
   atomically $
-    forM_ outgoing $
-      \(nodeId, message) ->
-        writeTQueue (peQueues env Map.! nodeId) message
+    foldM
+      ( \acc (nodeId, message) ->
+          case acc of
+            Left err -> pure (Left err)
+            Right () -> writeQueue nodeId message env
+      )
+      (Right ())
+      outgoing
 
 activeVerticesSTM :: PregelEnv -> IO [NodeId]
 activeVerticesSTM env =
-  atomically $
-    foldM
-      ( \acc (nodeId, queue) -> do
-          empty <- isEmptyTQueue queue
-          pure (if empty then acc else nodeId : acc)
-      )
-      []
-      (Map.toList (peQueues env))
+  atomically $ do
+    flags <-
+      forM (Map.toList (peQueues env)) $ \(nodeId, queue) -> do
+        empty <- isEmptyTQueue queue
+        pure (nodeId, not empty)
+    pure [nodeId | (nodeId, True) <- flags]

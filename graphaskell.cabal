@@ -12,7 +12,8 @@ common lib-deps
         async,
         containers,
         optparse-applicative,
-        stm
+        stm,
+        transformers
 
 library
     import:           lib-deps
@@ -27,15 +28,19 @@ library
         Algorithm.PageRank,
         Algorithm.Spec,
         Algorithm.Types,
+        Cli.Error,
         Cli.Options,
         Graph.ParseError,
         Graph.Parser,
+        Graph.Reading,
         Graph.Types,
         Graph.VertexContext,
         Output.Trace,
         Pregel.Engine,
         Pregel.Env,
+        Pregel.Error,
         Pregel.Pool,
+        Pregel.Superstep,
         Pregel.Types
     default-language: GHC2021
     hs-source-dirs:   src
@@ -47,7 +52,9 @@ executable graphaskell
     build-depends:
         base,
         graphaskell,
-        optparse-applicative
+        mtl,
+        optparse-applicative,
+        transformers
     default-language: GHC2021
     hs-source-dirs:   app
 
@@ -59,6 +66,7 @@ test-suite graphaskell-test
         ParserTests,
         AlgorithmTests,
         TraceTests,
+        PropertyTests,
         Fixtures,
         SequentialEngine,
         TestSupport
@@ -67,6 +75,7 @@ test-suite graphaskell-test
         containers,
         directory,
         HUnit,
+        QuickCheck,
         graphaskell
     default-language: GHC2021
     hs-source-dirs:   test

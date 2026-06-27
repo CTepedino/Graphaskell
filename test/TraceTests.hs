@@ -4,7 +4,7 @@ import Data.List (isInfixOf)
 import Fixtures (disconnectedGraphText, runFixture)
 import Graph.Types (Algorithm (..))
 import Output.Trace (describeRun)
-import Pregel.Engine (PregelRun (..))
+import Pregel.Types
 import Pregel.Types
 import Test.HUnit
 import TestSupport (assertComponentsListed)

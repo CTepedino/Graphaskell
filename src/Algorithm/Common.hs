@@ -15,6 +15,11 @@ module Algorithm.Common
     labelBootstrap,
     emitLabelMessages,
     minimumWithSelf,
+    pathInitState,
+    pathBootstrap,
+    pathMaxSupersteps,
+    labelMaxSupersteps,
+    pageRankMaxSupersteps,
   )
 where
 
@@ -157,7 +162,7 @@ tryImproveDistance _ [] _ =
   Unchanged
 tryImproveDistance nodeId candidates state =
   let (newDist, predecessor) =
-        minimumBy (comparing fst) candidates
+        minimumBy (comparing fst <> comparing snd) candidates
    in case vsDistance state of
         Just current | newDist >= current ->
           Unchanged
@@ -209,3 +214,27 @@ emitLabelMessages vtx state =
     | Just label <- [vsLabel state],
       to <- outNeighbors vtx
   ]
+
+pathInitState :: NodeId -> RunConfig -> VertexState
+pathInitState nodeId cfg
+  | nodeId == rcSource cfg =
+      initialVertexState {vsDistance = Just 0}
+  | otherwise =
+      initialVertexState
+
+pathBootstrap :: (Maybe Int -> Bool) -> RunConfig -> [(NodeId, Message)]
+pathBootstrap acceptWeight cfg =
+  [ (to, MsgDistance (rcSource cfg) 0)
+    | (to, weight) <- neighbors (rcGraph cfg) (rcSource cfg),
+      acceptWeight weight
+  ]
+
+pathMaxSupersteps :: Int -> Int
+pathMaxSupersteps n = max 1 n
+
+labelMaxSupersteps :: Int -> Int
+labelMaxSupersteps n = max 1 n
+
+pageRankMaxSupersteps :: Int -> Int
+pageRankMaxSupersteps n =
+  max 1 (n * n)

@@ -3,7 +3,7 @@ module Algorithm.PageRank
   )
 where
 
-import Algorithm.Common (VertexUpdate (..), extractRankingsResult, runVertexUpdate)
+import Algorithm.Common (VertexUpdate (..), extractRankingsResult, pageRankMaxSupersteps, runVertexUpdate)
 import Algorithm.Types (AlgorithmSpec (..))
 import Graph.Types
 import Graph.VertexContext (VertexContext (..), outNeighbors, outDegree)
@@ -21,7 +21,8 @@ pageRankSpec =
     { specInitState = initState,
       specBootstrap = bootstrap,
       specVertexUpdate = vertexUpdate,
-      specExtractResult = extractRankingsResult
+      specExtractResult = extractRankingsResult,
+      specMaxSupersteps = pageRankMaxSupersteps
     }
 
 initState :: NodeId -> RunConfig -> VertexState
