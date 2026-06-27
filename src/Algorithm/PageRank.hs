@@ -4,6 +4,8 @@ module Algorithm.PageRank
 where
 
 import Algorithm.Common (VertexUpdate (..), extractRankingsResult, pageRankMaxSupersteps, runVertexUpdate)
+import Algorithm.Log (RankLogEntry (..))
+import Algorithm.Messages (RankMsg (..))
 import Algorithm.State (RankState (..), emptyRankState)
 import Algorithm.Types (AlgorithmSpec (..))
 import Graph.Types
@@ -16,7 +18,9 @@ damping = 0.85
 rankEpsilon :: Double
 rankEpsilon = 1e-9
 
-pageRankSpec :: AlgorithmSpec RankState RankMsg
+type PageRankLog = RankLogEntry RankMsg
+
+pageRankSpec :: AlgorithmSpec RankState RankMsg PageRankLog
 pageRankSpec =
   AlgorithmSpec
     { specInitState = initState,
@@ -48,13 +52,13 @@ vertexUpdate ::
   VertexContext ->
   RankState ->
   [RankMsg] ->
-  VertexStepResult RankState RankMsg
+  VertexStepResult RankState RankMsg PageRankLog
 vertexUpdate vtx state messages =
   let n = fromIntegral (vcNodeCount vtx)
       nodeId = vcNodeId vtx
    in runVertexUpdate vtx state messages (pageRankUpdate n nodeId) emitOutgoing
 
-pageRankUpdate :: Double -> NodeId -> [RankMsg] -> RankState -> VertexUpdate RankState RankMsg
+pageRankUpdate :: Double -> NodeId -> [RankMsg] -> RankState -> VertexUpdate RankState RankMsg PageRankLog
 pageRankUpdate n nodeId messages state =
   let oldRank = rsRank state
       incoming = sum [rmRank message | message <- messages]
@@ -64,7 +68,7 @@ pageRankUpdate n nodeId messages state =
         else
           Updated
             (RankState newRank)
-            [VertexRankUpdated nodeId newRank]
+            [RankUpdated nodeId newRank]
 
 emitOutgoing :: VertexContext -> RankState -> [(NodeId, RankMsg)]
 emitOutgoing vtx state =

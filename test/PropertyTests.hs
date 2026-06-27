@@ -1,5 +1,6 @@
 module PropertyTests (propertyTests) where
 
+import Algorithm.Result (Result (..))
 import Algorithm.Types (AlgorithmSpec (..), SomeAlgorithmSpec (..))
 import Fixtures
   ( parseFixture,
@@ -12,7 +13,7 @@ import Fixtures
 import Graph.Parser (parseGraphFile)
 import Graph.Types (Algorithm (..), nodeCount)
 import Pregel.Engine (mkRunConfig)
-import Pregel.Types (PregelRun (..), Result (..), somePregelResult)
+import Pregel.Types (PregelRun (..), somePregelResult)
 import SequentialEngine (runSequential)
 import Test.HUnit (Test (..), (~:), assertFailure)
 import Test.QuickCheck

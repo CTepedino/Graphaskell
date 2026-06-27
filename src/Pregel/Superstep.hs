@@ -17,20 +17,20 @@ import Graph.VertexContext (VertexContexts)
 import Pregel.Error (PregelError (..))
 import Pregel.Types
 
-data SuperstepResult state msg = SuperstepResult
+data SuperstepResult state msg log = SuperstepResult
   { ssNewStates :: VertexStates state,
     ssOutgoing :: [(NodeId, msg)],
-    ssEntries :: [LogEntry msg]
+    ssEntries :: [log]
   }
   deriving (Eq, Show)
 
 applyVertexUpdate ::
-  AlgorithmSpec state msg ->
+  AlgorithmSpec state msg log ->
   VertexContexts ->
   VertexStates state ->
   NodeId ->
   [msg] ->
-  Maybe (VertexStepResult state msg)
+  Maybe (VertexStepResult state msg log)
 applyVertexUpdate spec contexts states nodeId messages = do
   vtx <- Map.lookup nodeId contexts
   let state = Map.findWithDefault (specDefaultState spec) nodeId states
@@ -55,7 +55,7 @@ mergeUpdatedStates states updates =
   foldr (uncurry Map.insert) states updates
 
 initialVertexStates ::
-  AlgorithmSpec state msg ->
+  AlgorithmSpec state msg log ->
   RunConfig ->
   Graph ->
   VertexStates state
@@ -66,12 +66,12 @@ initialVertexStates spec cfg graph =
     ]
 
 processActiveVertices ::
-  AlgorithmSpec state msg ->
+  AlgorithmSpec state msg log ->
   VertexContexts ->
   VertexStates state ->
   (NodeId -> [msg]) ->
   [NodeId] ->
-  Either PregelError (SuperstepResult state msg)
+  Either PregelError (SuperstepResult state msg log)
 processActiveVertices spec contexts states messageFor actives =
   case mapM processOne actives of
     Left err ->
@@ -101,8 +101,8 @@ mkSuperstepLog ::
   Int ->
   [NodeId] ->
   [(NodeId, msg)] ->
-  [LogEntry msg] ->
-  SuperstepLog msg
+  [log] ->
+  SuperstepLog log
 mkSuperstepLog step actives outgoing entries =
   SuperstepLog
     { sslStep = step,

@@ -1,6 +1,7 @@
 module AlgorithmTests (algorithmTests) where
 
 import Algorithm.Error (AlgorithmError (..))
+import Algorithm.Result (Result (..))
 import Algorithm.Spec (resolveAlgorithm, validatePathTarget)
 import Fixtures
   ( disconnectedGraphText,
@@ -14,7 +15,7 @@ import Fixtures
   )
 import Graph.Types (Algorithm (..))
 import Pregel.Error (PregelError (..))
-import Pregel.Types (Result (..), somePregelResult)
+import Pregel.Types (somePregelResult)
 import Test.HUnit
 import TestSupport
   ( assertEnginesAgreeSome,

@@ -12,12 +12,13 @@ module TestSupport
   )
 where
 
+import Algorithm.Result (Result (..))
 import Algorithm.Types (AlgorithmSpec, SomeAlgorithmSpec (..))
 import Data.List (isInfixOf)
 import Graph.Parser (parseGraphFile)
 import Graph.Types (Graph, NodeId, neighbors)
 import Pregel.Engine (mkRunConfig, runPregel)
-import Pregel.Types (PregelRun (..), Result (..), RunConfig)
+import Pregel.Types (PregelRun (..), RunConfig)
 import SequentialEngine (runSequential)
 import System.Directory (doesFileExist)
 import Test.HUnit (Assertion, (@?=), assertBool, assertFailure)
@@ -39,7 +40,7 @@ labelPropagationExpected =
     (4, 0)
   ]
 
-assertEnginesAgree :: RunConfig -> AlgorithmSpec state msg -> IO Assertion
+assertEnginesAgree :: RunConfig -> AlgorithmSpec state msg log -> IO Assertion
 assertEnginesAgree cfg spec = do
   let sequential = runSequential cfg spec
   concurrent <- runPregel cfg spec

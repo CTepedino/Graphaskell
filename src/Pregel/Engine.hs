@@ -31,7 +31,7 @@ mkRunConfig ::
   NodeId ->
   Maybe NodeId ->
   Int ->
-  AlgorithmSpec state msg ->
+  AlgorithmSpec state msg log ->
   RunConfig
 mkRunConfig graph source target threads spec =
   RunConfig
@@ -42,10 +42,10 @@ mkRunConfig graph source target threads spec =
       rcMaxSteps = specMaxSupersteps spec (nodeCount graph)
     }
 
-runPregel :: RunConfig -> AlgorithmSpec state msg -> IO (Either PregelError (PregelRun msg))
+runPregel :: RunConfig -> AlgorithmSpec state msg log -> IO (Either PregelError (PregelRun log))
 runPregel = runConcurrent
 
-runConcurrent :: RunConfig -> AlgorithmSpec state msg -> IO (Either PregelError (PregelRun msg))
+runConcurrent :: RunConfig -> AlgorithmSpec state msg log -> IO (Either PregelError (PregelRun log))
 runConcurrent cfg spec = do
   let graph = rcGraph cfg
       contexts = buildVertexContexts graph
@@ -75,12 +75,12 @@ runConcurrent cfg spec = do
 
 loopConcurrent ::
   RunConfig ->
-  AlgorithmSpec state msg ->
+  AlgorithmSpec state msg log ->
   VertexContexts ->
   Int ->
   VertexStates state ->
   PregelEnv msg ->
-  IO (Either PregelError (VertexStates state, [SuperstepLog msg], Int, Bool))
+  IO (Either PregelError (VertexStates state, [SuperstepLog log], Int, Bool))
 loopConcurrent cfg spec contexts step states env
   | step >= rcMaxSteps cfg =
       pure (Right (states, [], step, True))

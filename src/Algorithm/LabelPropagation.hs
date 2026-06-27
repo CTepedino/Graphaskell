@@ -12,6 +12,8 @@ import Algorithm.Common
     tryRelabel,
     emitLabelMessages,
   )
+import Algorithm.Log (LabelLogEntry)
+import Algorithm.Messages (LabelMsg (..))
 import Algorithm.State (LabelState (..), emptyLabelState)
 import Algorithm.Types (AlgorithmSpec (..))
 import Data.Map.Strict (Map)
@@ -20,7 +22,9 @@ import Graph.Types
 import Graph.VertexContext (VertexContext (..))
 import Pregel.Types
 
-labelPropagationSpec :: AlgorithmSpec LabelState LabelMsg
+type LabelPropagationLog = LabelLogEntry LabelMsg
+
+labelPropagationSpec :: AlgorithmSpec LabelState LabelMsg LabelPropagationLog
 labelPropagationSpec =
   AlgorithmSpec
     { specInitState = initState,
@@ -42,11 +46,11 @@ vertexUpdate ::
   VertexContext ->
   LabelState ->
   [LabelMsg] ->
-  VertexStepResult LabelState LabelMsg
+  VertexStepResult LabelState LabelMsg LabelPropagationLog
 vertexUpdate vtx state messages =
   runVertexUpdate vtx state messages (lpaUpdate (vcNodeId vtx)) emitLabelMessages
 
-lpaUpdate :: NodeId -> [LabelMsg] -> LabelState -> VertexUpdate LabelState LabelMsg
+lpaUpdate :: NodeId -> [LabelMsg] -> LabelState -> VertexUpdate LabelState LabelMsg LabelPropagationLog
 lpaUpdate nodeId messages state =
   let newLabel = majorityLabel (lsLabel state) messages
    in tryRelabel nodeId newLabel state

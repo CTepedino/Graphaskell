@@ -12,6 +12,8 @@ import Algorithm.Common
     runVertexUpdate,
     tryImproveDistance,
   )
+import Algorithm.Log (PathLogEntry)
+import Algorithm.Messages (DistanceMsg (..))
 import Algorithm.State (PathState (..), emptyPathState)
 import Algorithm.Types (AlgorithmSpec (..))
 import Data.Maybe (isJust, mapMaybe)
@@ -23,7 +25,9 @@ import Graph.VertexContext
   )
 import Pregel.Types
 
-bellmanFordSpec :: AlgorithmSpec PathState DistanceMsg
+type BellmanFordLog = PathLogEntry DistanceMsg
+
+bellmanFordSpec :: AlgorithmSpec PathState DistanceMsg BellmanFordLog
 bellmanFordSpec =
   AlgorithmSpec
     { specInitState = pathInitState,
@@ -38,11 +42,11 @@ vertexUpdate ::
   VertexContext ->
   PathState ->
   [DistanceMsg] ->
-  VertexStepResult PathState DistanceMsg
+  VertexStepResult PathState DistanceMsg BellmanFordLog
 vertexUpdate vtx state messages =
   runVertexUpdate vtx state messages (bellmanFordUpdate vtx) emitOutgoing
 
-bellmanFordUpdate :: VertexContext -> [DistanceMsg] -> PathState -> VertexUpdate PathState DistanceMsg
+bellmanFordUpdate :: VertexContext -> [DistanceMsg] -> PathState -> VertexUpdate PathState DistanceMsg BellmanFordLog
 bellmanFordUpdate vtx messages =
   tryImproveDistance
     (vcNodeId vtx)

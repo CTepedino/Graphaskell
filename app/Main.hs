@@ -1,5 +1,6 @@
 module Main where
 
+import Algorithm.Log (DescribeLogEntry (..))
 import Algorithm.Spec (SomeAlgorithmSpec (..), resolveAlgorithm, validatePathTarget)
 import AppError (AppError (..), displayAppError)
 import Cli.Options (Options (..), parseOptions)
@@ -53,7 +54,7 @@ except = ExceptT . pure
 exceptTWith :: (e -> AppError) -> Either e a -> ExceptT AppError IO a
 exceptTWith f = ExceptT . pure . first f
 
-buildOutput :: Show msg => Options -> Graph -> PregelRun msg -> [String]
+buildOutput :: DescribeLogEntry log => Options -> Graph -> PregelRun log -> [String]
 buildOutput opts graph pregelRun =
   configBanner opts
     ++ [ "Graph loaded:",

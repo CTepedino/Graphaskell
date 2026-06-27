@@ -1,18 +1,13 @@
 module TraceTests (traceTests) where
 
+import Algorithm.Log (PathLogEntry (..), RankLogEntry (..))
+import Algorithm.Messages (DistanceMsg (..), RankMsg)
+import Algorithm.Result (Result (..))
 import Data.List (isInfixOf)
 import Fixtures (disconnectedGraphText, runFixture)
 import Graph.Types (Algorithm (..))
 import Output.Trace (describeRun)
-import Pregel.Types
-  ( DistanceMsg (..),
-    LogEntry (..),
-    PregelRun (..),
-    RankMsg (..),
-    Result (..),
-    SomePregelRun (..),
-    SuperstepLog (..),
-  )
+import Pregel.Types (PregelRun (..), SomePregelRun (..), SuperstepLog (..))
 import Test.HUnit
 import TestSupport (assertComponentsListed)
 
@@ -50,7 +45,9 @@ traceTests =
           "no path between source and target" `isInfixOf` output
     ]
 
-sampleRun :: PregelRun DistanceMsg
+type SampleLog = PathLogEntry DistanceMsg
+
+sampleRun :: PregelRun SampleLog
 sampleRun =
   PregelRun
     { prSupersteps = 1,
@@ -60,8 +57,8 @@ sampleRun =
               sslActiveVertices = 1,
               sslMessagesSent = 1,
               sslEntries =
-                [ VertexUpdated 0 1,
-                  MessageSent 0 1 (DistanceMsg 0 0)
+                [ PathDistanceUpdated 0 1,
+                  PathMessageSent 0 1 (DistanceMsg 0 0)
                 ]
             }
         ],
@@ -69,14 +66,14 @@ sampleRun =
       prMaxStepsReached = False
     }
 
-maxStepsRun :: PregelRun DistanceMsg
+maxStepsRun :: PregelRun SampleLog
 maxStepsRun =
   sampleRun
     { prMaxStepsReached = True,
       prSupersteps = 25
     }
 
-pageRankRun :: PregelRun RankMsg
+pageRankRun :: PregelRun (RankLogEntry RankMsg)
 pageRankRun =
   PregelRun
     { prSupersteps = 1,
@@ -85,6 +82,6 @@ pageRankRun =
       prMaxStepsReached = False
     }
 
-noPathRun :: PregelRun DistanceMsg
+noPathRun :: PregelRun SampleLog
 noPathRun =
   sampleRun {prResult = NoPath}

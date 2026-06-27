@@ -24,6 +24,13 @@ module Algorithm.Common
 where
 
 import Algorithm.Error (AlgorithmError (..))
+import Algorithm.Log
+  ( LabelLogEntry (..),
+    MessageLog (..),
+    PathLogEntry (..),
+  )
+import Algorithm.Messages (DistanceMsg (..), LabelMsg (..))
+import Algorithm.Result (Result (..))
 import Algorithm.State
   ( LabelState (..),
     PathState (..),
@@ -39,9 +46,9 @@ import Graph.Types
 import Graph.VertexContext (VertexContext, outNeighbors, vcNodeId)
 import Pregel.Types
 
-data VertexUpdate state msg
+data VertexUpdate state msg log
   = Unchanged
-  | Updated state [LogEntry msg]
+  | Updated state [log]
   deriving (Eq, Show)
 
 validateWeightedGraph :: Graph -> Either AlgorithmError ()
@@ -123,12 +130,13 @@ reconstructPath states target source = go target []
             Nothing -> []
 
 runVertexUpdate ::
+  MessageLog msg log =>
   VertexContext ->
   state ->
   [msg] ->
-  ([msg] -> state -> VertexUpdate state msg) ->
+  ([msg] -> state -> VertexUpdate state msg log) ->
   (VertexContext -> state -> [(NodeId, msg)]) ->
-  VertexStepResult state msg
+  VertexStepResult state msg log
 runVertexUpdate vtx state messages update emit =
   let nodeId = vcNodeId vtx
    in case update messages state of
@@ -138,14 +146,15 @@ runVertexUpdate vtx state messages update emit =
           stepResult nodeId newState (emit vtx newState) logs
 
 stepResult ::
+  MessageLog msg log =>
   NodeId ->
   state ->
   [(NodeId, msg)] ->
-  [LogEntry msg] ->
-  VertexStepResult state msg
+  [log] ->
+  VertexStepResult state msg log
 stepResult nodeId newState outgoing logs =
   let sentLogs =
-        [ MessageSent nodeId to msg
+        [ messageSentLog nodeId to msg
           | (to, msg) <- outgoing
         ]
    in VertexStepResult
@@ -164,7 +173,7 @@ tryImproveDistance ::
   NodeId ->
   [(Int, NodeId)] ->
   PathState ->
-  VertexUpdate PathState msg
+  VertexUpdate PathState DistanceMsg (PathLogEntry DistanceMsg)
 tryImproveDistance _ [] _ =
   Unchanged
 tryImproveDistance nodeId candidates state =
@@ -180,20 +189,20 @@ tryImproveDistance nodeId candidates state =
                   psPredecessor = Just predecessor
                 }
             )
-            [VertexUpdated nodeId newDist]
+            [PathDistanceUpdated nodeId newDist]
 
 tryRelabel ::
   NodeId ->
   NodeId ->
   LabelState ->
-  VertexUpdate LabelState msg
+  VertexUpdate LabelState LabelMsg (LabelLogEntry LabelMsg)
 tryRelabel nodeId newLabel state =
   if newLabel == lsLabel state
     then Unchanged
     else
       Updated
         (LabelState newLabel)
-        [VertexLabelUpdated nodeId newLabel]
+        [LabelChanged nodeId newLabel]
 
 labelsFromMessages :: [LabelMsg] -> [NodeId]
 labelsFromMessages messages =

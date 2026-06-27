@@ -14,13 +14,17 @@ import Algorithm.Common
     runVertexUpdate,
     tryRelabel,
   )
+import Algorithm.Log (LabelLogEntry)
+import Algorithm.Messages (LabelMsg)
 import Algorithm.State (LabelState (..), emptyLabelState)
 import Algorithm.Types (AlgorithmSpec (..))
 import Graph.Types
 import Graph.VertexContext (VertexContext (..))
 import Pregel.Types
 
-connectedComponentsSpec :: AlgorithmSpec LabelState LabelMsg
+type ComponentLog = LabelLogEntry LabelMsg
+
+connectedComponentsSpec :: AlgorithmSpec LabelState LabelMsg ComponentLog
 connectedComponentsSpec =
   AlgorithmSpec
     { specInitState = initState,
@@ -42,11 +46,11 @@ vertexUpdate ::
   VertexContext ->
   LabelState ->
   [LabelMsg] ->
-  VertexStepResult LabelState LabelMsg
+  VertexStepResult LabelState LabelMsg ComponentLog
 vertexUpdate vtx state messages =
   runVertexUpdate vtx state messages (ccUpdate (vcNodeId vtx)) emitLabelMessages
 
-ccUpdate :: NodeId -> [LabelMsg] -> LabelState -> VertexUpdate LabelState LabelMsg
+ccUpdate :: NodeId -> [LabelMsg] -> LabelState -> VertexUpdate LabelState LabelMsg ComponentLog
 ccUpdate nodeId messages state =
   let newLabel = minimumWithSelf (lsLabel state) (labelsFromMessages messages)
    in tryRelabel nodeId newLabel state

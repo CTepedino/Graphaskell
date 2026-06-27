@@ -22,7 +22,7 @@ runSomeSequential :: RunConfig -> SomeAlgorithmSpec -> Either PregelError SomePr
 runSomeSequential cfg (SomeAlgorithmSpec spec) =
   fmap SomePregelRun (runSequential cfg spec)
 
-runSequential :: RunConfig -> AlgorithmSpec state msg -> Either PregelError (PregelRun msg)
+runSequential :: RunConfig -> AlgorithmSpec state msg log -> Either PregelError (PregelRun log)
 runSequential cfg spec = do
   let graph = rcGraph cfg
       contexts = buildVertexContexts graph
@@ -44,12 +44,12 @@ runSequential cfg spec = do
 
 loop ::
   VertexContexts ->
-  AlgorithmSpec state msg ->
+  AlgorithmSpec state msg log ->
   RunConfig ->
   Int ->
   VertexStates state ->
   MessageQueues msg ->
-  Either PregelError (VertexStates state, [SuperstepLog msg], Int, Bool)
+  Either PregelError (VertexStates state, [SuperstepLog log], Int, Bool)
 loop contexts spec cfg step states queues
   | step >= rcMaxSteps cfg =
       pure (states, [], step, True)
