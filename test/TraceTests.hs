@@ -39,7 +39,6 @@ sampleRun =
             }
         ],
       prResult = PathFound [0, 1] 1,
-      prFinalStates = undefined,
       prMaxStepsReached = False
     }
 

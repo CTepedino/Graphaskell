@@ -3,8 +3,6 @@ module Main where
 import Algorithm.Spec (resolveAlgorithm, validatePathTarget)
 import AppError (AppError (..), displayAppError)
 import Cli.Options (Options (..), parseOptions)
-import Control.Monad.Except (ExceptT (..), liftEither, runExceptT)
-import Control.Monad.Trans (lift)
 import Data.Bifunctor (first)
 import Graph.Parser
   ( describeGraph,
@@ -22,53 +20,49 @@ main = do
 
 run :: Options -> IO ()
 run opts = do
-  result <- runExceptT (execute opts)
+  result <- execute opts
   case result of
     Left err -> die (displayAppError err)
     Right outputLines -> mapM_ putStrLn outputLines
 
-execute :: Options -> ExceptT AppError IO [String]
-execute opts = do
-  liftEither $
-    first AppAlgorithm $
-      validatePathTarget (optAlgorithm opts) (optTarget opts)
-
-  graph <-
-    ExceptT ((first AppLoad) <$> loadGraphFile (optGraphPath opts))
-
-  liftEither $
-    first AppParse $
-      validateRunNodes graph (optSource opts) (optTarget opts)
-
-  spec <-
-    liftEither $
-      first AppAlgorithm $
-        resolveAlgorithm graph (optAlgorithm opts)
-
-  let cfg =
-        mkRunConfig
-          graph
-          (optSource opts)
-          (optTarget opts)
-          (optAlgorithm opts)
-          (optThreads opts)
-
-  pregelRun <-
-    lift $
-      if optSequential opts
-        then pure (runSequential cfg spec)
-        else runPregel cfg spec
-
-  pure $
-    configBanner opts
-      ++ [ "Graph loaded:",
-           "",
-           describeGraph graph,
-           "",
-           executionHeader opts,
-           "",
-           describeRun (optVerbose opts) pregelRun
-         ]
+execute :: Options -> IO (Either AppError [String])
+execute opts =
+  case first AppAlgorithm (validatePathTarget (optAlgorithm opts) (optTarget opts)) of
+    Left err -> pure (Left err)
+    Right () ->
+      loadGraphFile (optGraphPath opts) >>= \graphResult ->
+        case graphResult of
+          Left loadErr -> pure (Left (AppLoad loadErr))
+          Right graph ->
+            case first AppParse (validateRunNodes graph (optSource opts) (optTarget opts)) of
+              Left err -> pure (Left err)
+              Right () ->
+                case first AppAlgorithm (resolveAlgorithm graph (optAlgorithm opts)) of
+                  Left err -> pure (Left err)
+                  Right spec -> do
+                    let cfg =
+                          mkRunConfig
+                            graph
+                            (optSource opts)
+                            (optTarget opts)
+                            (optThreads opts)
+                    pregelRun <-
+                      if optSequential opts
+                        then pure (runSequential cfg spec)
+                        else runPregel cfg spec
+                    pure
+                      ( Right
+                          ( configBanner opts
+                              ++ [ "Graph loaded:",
+                                   "",
+                                   describeGraph graph,
+                                   "",
+                                   executionHeader opts,
+                                   "",
+                                   describeRun (optVerbose opts) pregelRun
+                                 ]
+                          )
+                      )
 
 configBanner :: Options -> [String]
 configBanner opts =

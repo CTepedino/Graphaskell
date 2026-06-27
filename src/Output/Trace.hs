@@ -1,6 +1,5 @@
 module Output.Trace
-  ( describeResult,
-    describeRun,
+  ( describeRun,
   )
 where
 
@@ -100,12 +99,18 @@ describeResult result =
         ]
     NoPath ->
       "Result: no path between source and target"
-    ComponentFound label members ->
+    Components groups ->
       unlines
-        [ "Result: connected component",
-          "  Label:  " ++ show label,
-          "  Nodes:  " ++ show members
-        ]
+        ( "Result: connected components"
+            : map
+              ( \(label, members) ->
+                  "  component "
+                    ++ show label
+                    ++ ": "
+                    ++ show members
+              )
+              groups
+        )
     Rankings pairs ->
       unlines
         ( "Result: PageRank"

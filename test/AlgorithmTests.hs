@@ -4,7 +4,6 @@ import Algorithm.Error (AlgorithmError (..))
 import Algorithm.Spec (resolveAlgorithm, validatePathTarget)
 import Fixtures
   ( disconnectedGraphText,
-    mkRunConfigFor,
     pageRankGraphText,
     parseFixture,
     resolveFixture,
@@ -13,7 +12,7 @@ import Fixtures
     weightedGraphText,
   )
 import Graph.Types (Algorithm (..))
-import Pregel.Engine (PregelRun (..), runPregel, runSequential)
+import Pregel.Engine (PregelRun (..), mkRunConfig, runPregel, runSequential)
 import Pregel.Types (InputError (..), Result (..))
 import Test.HUnit
 
@@ -45,10 +44,10 @@ algorithmTests =
           _ -> assertFailure "expected WeightedGraphRequired",
       "connected components from source" ~: do
         let run = runFixture ConnectedComponents 0 Nothing simpleGraphText
-        prResult run @?= ComponentFound 0 [0, 1, 2, 3, 4],
+        prResult run @?= Components [(0, [0, 1, 2, 3, 4])],
       "connected components in disconnected graph" ~: do
         let run = runFixture ConnectedComponents 0 Nothing disconnectedGraphText
-        prResult run @?= ComponentFound 0 [0, 1],
+        prResult run @?= Components [(0, [0, 1]), (2, [2, 3])],
       "PageRank produces per-node rankings" ~: do
         let run = runFixture PageRank 0 Nothing pageRankGraphText
         case prResult run of
@@ -62,14 +61,14 @@ algorithmTests =
       "sequential and concurrent engines agree (BFS)" ~: do
         let graph = parseFixture simpleGraphText
             spec = resolveFixture BFS graph
-            cfg = mkRunConfigFor graph 0 (Just 4) BFS 4
+            cfg = mkRunConfig graph 0 (Just 4) 4
             sequential = runSequential cfg spec
         concurrent <- runPregel cfg spec
         prResult sequential @?= prResult concurrent,
       "threads=1 concurrent matches sequential (Bellman-Ford)" ~: do
         let graph = parseFixture weightedGraphText
             spec = resolveFixture BellmanFord graph
-            cfg = mkRunConfigFor graph 0 (Just 3) BellmanFord 1
+            cfg = mkRunConfig graph 0 (Just 3) 1
             sequential = runSequential cfg spec
         concurrent <- runPregel cfg spec
         prResult sequential @?= prResult concurrent

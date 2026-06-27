@@ -5,7 +5,6 @@ module Fixtures
     pageRankGraphText,
     parseFixture,
     runFixture,
-    mkRunConfigFor,
     resolveFixture,
   )
 where
@@ -14,7 +13,6 @@ import Algorithm.Spec (resolveAlgorithm)
 import Algorithm.Types (AlgorithmSpec)
 import Graph.Parser (parseGraphFile)
 import Graph.Types (Algorithm (..), Graph, NodeId)
-import Pregel.Types (RunConfig)
 import Pregel.Engine (PregelRun, mkRunConfig, runSequential)
 
 simpleGraphText :: String
@@ -74,15 +72,6 @@ resolveFixture algorithm graph =
     Left algorithmError -> error ("resolveFixture: " ++ show algorithmError)
     Right spec -> spec
 
-mkRunConfigFor ::
-  Graph ->
-  NodeId ->
-  Maybe NodeId ->
-  Algorithm ->
-  Int ->
-  RunConfig
-mkRunConfigFor = mkRunConfig
-
 runFixture ::
   Algorithm ->
   NodeId ->
@@ -92,5 +81,5 @@ runFixture ::
 runFixture algorithm source target text =
   let graph = parseFixture text
       spec = resolveFixture algorithm graph
-      cfg = mkRunConfigFor graph source target algorithm 1
+      cfg = mkRunConfig graph source target 1
    in runSequential cfg spec

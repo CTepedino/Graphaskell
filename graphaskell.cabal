@@ -11,7 +11,6 @@ common lib-deps
         base,
         async,
         containers,
-        mtl,
         optparse-applicative,
         stm
 
@@ -48,7 +47,6 @@ executable graphaskell
     build-depends:
         base,
         graphaskell,
-        mtl,
         optparse-applicative
     default-language: GHC2021
     hs-source-dirs:   app

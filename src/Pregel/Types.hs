@@ -73,7 +73,7 @@ data SuperstepLog = SuperstepLog
 data Result
   = PathFound [NodeId] Int
   | NoPath
-  | ComponentFound NodeId [NodeId]
+  | Components [(NodeId, [NodeId])]
   | Rankings [(NodeId, Double)]
   | NodeLabels [(NodeId, NodeId)]
   | InputError InputError
@@ -89,7 +89,6 @@ data RunConfig = RunConfig
     rcSource :: NodeId,
     rcTarget :: Maybe NodeId,
     rcThreads :: Int,
-    rcAlgorithm :: Algorithm,
     rcMaxSteps :: Int
   }
   deriving (Eq, Show)

@@ -61,18 +61,22 @@ extractPathResult states cfg =
                     else PathFound path dist
 
 extractComponentResult :: Map NodeId VertexState -> RunConfig -> Result
-extractComponentResult states cfg =
-  case Map.lookup (rcSource cfg) states >>= vsLabel of
-    Nothing ->
-      InputError (TargetNodeMissing (rcSource cfg))
-    Just componentLabel ->
-      let members =
-            sort
-              [ nodeId
-                | (nodeId, vertexState) <- Map.toList states,
-                  vsLabel vertexState == Just componentLabel
-              ]
-       in ComponentFound componentLabel members
+extractComponentResult states _cfg =
+  Components
+    ( sort
+        [ (label, sort members)
+          | (label, members) <- Map.toList (groupByLabel states)
+        ]
+    )
+
+groupByLabel :: Map NodeId VertexState -> Map NodeId [NodeId]
+groupByLabel states =
+  Map.fromListWith
+    (++)
+    [ (label, [nodeId])
+      | (nodeId, vertexState) <- Map.toList states,
+        Just label <- [vsLabel vertexState]
+    ]
 
 extractRankingsResult :: Map NodeId VertexState -> RunConfig -> Result
 extractRankingsResult states _cfg =

@@ -1,6 +1,6 @@
 # Graphaskell
 
-Graph explorer with a **Pregel (BSP)** engine in Haskell: algorithms use `StateT`/`Writer`, concurrent execution uses `async` + STM.
+Graph explorer with a **Pregel (BSP)** engine in Haskell. Each algorithm is an `AlgorithmSpec` (pure init, bootstrap, vertex update, and result extraction). The default engine runs supersteps concurrently with `async` + STM; pass `--sequential` for the single-threaded reference implementation.
 
 ## Requirements
 
@@ -18,6 +18,8 @@ cabal build
 
 The graph file defines topology only (`NODES`, `EDGES`, optionally `WEIGHTED`). Source, target, and algorithm are specified via CLI flags.
 
+Sample graphs live in `examples/`.
+
 ### BFS (minimum-hop path)
 
 ```bash
@@ -27,7 +29,7 @@ cabal run graphaskell -- -g examples/grafo-simple.txt -s 0 -t 4 -a BFS
 ### Bellman-Ford (minimum weighted path)
 
 ```bash
-cabal run graphaskell -- -g examples/grafo-dirigido.txt -s 0 -t 3 -a BELLMANFORD
+cabal run graphaskell -- -g examples/grafo-weighted.txt -s 0 -t 3 -a BELLMANFORD
 ```
 
 ### PageRank
@@ -37,6 +39,8 @@ cabal run graphaskell -- -g examples/grafo-pagerank.txt -s 0 -a PAGERANK
 ```
 
 ### Connected components
+
+Returns every component in the graph (grouped by label), not only the component of `--source`. The source node is still required as the bootstrap vertex for label propagation.
 
 ```bash
 cabal run graphaskell -- -g examples/grafo-simple.txt -s 0 -a CC
@@ -53,7 +57,7 @@ cabal run graphaskell -- -g examples/grafo-simple.txt -s 0 -a LP
 | Flag | Description |
 |------|-------------|
 | `-g`, `--graph` | Path to the graph file |
-| `-s`, `--source` | Source node |
+| `-s`, `--source` | Source node (bootstrap vertex) |
 | `-t`, `--target` | Target node (required for BFS and Bellman-Ford) |
 | `-a`, `--algorithm` | `BFS`, `BELLMANFORD`, `PAGERANK`, `CC`, `LP` |
 | `--threads` | Number of threads (default: RTS capabilities) |
@@ -87,3 +91,5 @@ EDGES
 0 1 4
 0 2 1
 ```
+
+Legacy directives (`SOURCE`, `TARGET`, `ALGORITHM`) in graph files are rejected; use CLI flags instead.

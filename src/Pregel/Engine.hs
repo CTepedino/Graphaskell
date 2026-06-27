@@ -19,7 +19,6 @@ data PregelRun = PregelRun
   { prSupersteps :: Int,
     prLogs :: [SuperstepLog],
     prResult :: Result,
-    prFinalStates :: VertexStates,
     prMaxStepsReached :: Bool
   }
   deriving (Eq, Show)
@@ -35,16 +34,14 @@ mkRunConfig ::
   Graph ->
   NodeId ->
   Maybe NodeId ->
-  Algorithm ->
   Int ->
   RunConfig
-mkRunConfig graph source target algorithm threads =
+mkRunConfig graph source target threads =
   RunConfig
     { rcGraph = graph,
       rcSource = source,
       rcTarget = target,
       rcThreads = threads,
-      rcAlgorithm = algorithm,
       rcMaxSteps = maxSteps graph
     }
   where
@@ -73,7 +70,6 @@ runSequential cfg spec =
         { prSupersteps = steps,
           prLogs = logs,
           prResult = specExtractResult spec finalStates cfg,
-          prFinalStates = finalStates,
           prMaxStepsReached = maxStepsReached
         }
 
@@ -95,7 +91,6 @@ runConcurrent cfg spec = do
       { prSupersteps = steps,
         prLogs = logs,
         prResult = specExtractResult spec finalStates cfg,
-        prFinalStates = finalStates,
         prMaxStepsReached = maxStepsReached
       }
 
