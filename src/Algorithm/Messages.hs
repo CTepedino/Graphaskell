@@ -5,11 +5,11 @@ module Algorithm.Messages
   )
 where
 
-import Graph.Types (NodeId)
+import Graph.Types (Distance, NodeId)
 
 data DistanceMsg = DistanceMsg
   { dmFrom :: NodeId,
-    dmDistance :: Int
+    dmDistance :: Distance
   }
   deriving (Eq, Show)
 

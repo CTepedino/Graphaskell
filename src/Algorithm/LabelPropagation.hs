@@ -11,7 +11,6 @@ import Algorithm.Common
 import Algorithm.Messages (LabelMsg (..))
 import Algorithm.State (LabelState (..))
 import Algorithm.Types (AlgorithmSpec, LabelLog, mkLabelSpec)
-import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import Graph.Types (NodeId)
 import Graph.VertexContext (VertexContext)
@@ -36,15 +35,13 @@ lpaUpdate nodeId messages state =
 
 majorityLabel :: NodeId -> [LabelMsg] -> NodeId
 majorityLabel self messages =
-  let tallies :: Map NodeId Int
+  let labels = self : [lmLabel message | message <- messages]
       tallies =
-        Map.fromListWith
-          (+)
-          [ (label, 1)
-            | label <-
-                self : [lmLabel message | message <- messages]
-          ]
+        Map.fromListWith ((+) @Int) [(label, 1) | label <- labels]
       maxVotes = maximum (Map.elems tallies)
       winners =
-        Map.keys (Map.filter (== maxVotes) tallies)
-   in minimum winners
+        [ label
+          | (label, votes) <- Map.toList tallies,
+            votes == maxVotes
+        ]
+   in foldl min self winners

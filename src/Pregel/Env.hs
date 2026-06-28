@@ -13,9 +13,8 @@ import Control.Monad (foldM, forM)
 import Data.Foldable (toList)
 import qualified Data.Map.Strict as Map
 import qualified Data.Sequence as Seq
-import Graph.Types
+import Graph.Types (Graph (..), NodeId, graphNodes)
 import Pregel.Error (PregelError (..))
-import Pregel.Types
 
 data PregelEnv msg = PregelEnv
   { peQueues :: Map.Map NodeId (TQueue msg)

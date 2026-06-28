@@ -13,7 +13,7 @@ import Algorithm.Observability (pathObserver)
 import Algorithm.Result (Result (..))
 import Algorithm.State (PathState (..), emptyPathState)
 import qualified Data.Map.Strict as Map
-import Graph.Types (Edge (..), Graph, NodeId, buildGraph)
+import Graph.Types (Distance (..), Edge (..), Graph, NodeId (..), buildGraph)
 import Pregel.Types (RunConfig (..))
 import Test.HUnit
 
@@ -21,71 +21,71 @@ commonTests :: Test
 commonTests =
   TestList
     [ "tryImproveDistance accepts a better candidate" ~:
-        tryImproveDistance 1 [(2, 0)] (emptyPathState {psDistance = Just 5})
-          @?= Just (PathState (Just 2) (Just 0)),
+        tryImproveDistance (NodeId 1) [(Distance 2, NodeId 0)] (emptyPathState {psDistance = Just (Distance 5)})
+          @?= Just (PathState (Just (Distance 2)) (Just (NodeId 0))),
       "tryImproveDistance ignores a worse candidate" ~:
-        tryImproveDistance 1 [(5, 0)] (emptyPathState {psDistance = Just 2})
+        tryImproveDistance (NodeId 1) [(Distance 5, NodeId 0)] (emptyPathState {psDistance = Just (Distance 2)})
           @?= Nothing,
       "tryImproveDistance is unchanged with no candidates" ~:
-        tryImproveDistance 1 [] emptyPathState @?= Nothing,
+        tryImproveDistance (NodeId 1) [] emptyPathState @?= Nothing,
       "pathObserver records distance updates" ~:
         pathObserver
-          1
+          (NodeId 1)
           emptyPathState
-          (PathState (Just 2) (Just 0))
+          (PathState (Just (Distance 2)) (Just (NodeId 0)))
           []
-          @?= [PathDistanceUpdated 1 2],
+          @?= [PathDistanceUpdated (NodeId 1) (Distance 2)],
       "bfsCandidates adds one hop per message" ~:
-        bfsCandidates [DistanceMsg 0 1, DistanceMsg 2 3]
-          @?= [(2, 0), (4, 2)],
+        bfsCandidates [DistanceMsg (NodeId 0) (Distance 1), DistanceMsg (NodeId 2) (Distance 3)]
+          @?= [(Distance 2, NodeId 0), (Distance 4, NodeId 2)],
       "reconstructPath follows predecessor chain" ~: do
         let states =
               Map.fromList
-                [ (0, PathState (Just 0) Nothing),
-                  (1, PathState (Just 1) (Just 0)),
-                  (2, PathState (Just 2) (Just 1))
+                [ (NodeId 0, PathState (Just (Distance 0)) Nothing),
+                  (NodeId 1, PathState (Just (Distance 1)) (Just (NodeId 0))),
+                  (NodeId 2, PathState (Just (Distance 2)) (Just (NodeId 1)))
                 ]
-        reconstructPath states 2 0 @?= [0, 1, 2],
+        reconstructPath states (NodeId 2) (NodeId 0) @?= [NodeId 0, NodeId 1, NodeId 2],
       "extractPathResult returns PathFound" ~: do
         let graph = sampleGraph
-            cfg = samplePathCfg graph 2
+            cfg = samplePathCfg graph (NodeId 2)
             states =
               Map.fromList
-                [ (0, PathState (Just 0) Nothing),
-                  (1, PathState (Just 1) (Just 0)),
-                  (2, PathState (Just 2) (Just 1))
+                [ (NodeId 0, PathState (Just (Distance 0)) Nothing),
+                  (NodeId 1, PathState (Just (Distance 1)) (Just (NodeId 0))),
+                  (NodeId 2, PathState (Just (Distance 2)) (Just (NodeId 1)))
                 ]
-        extractPathResult states cfg @?= Right (PathFound [0, 1, 2] 2),
+        extractPathResult states cfg @?= Right (PathFound [NodeId 0, NodeId 1, NodeId 2] (Distance 2)),
       "extractPathResult returns NoPath when target is unreachable" ~: do
         let graph = sampleGraph
-            cfg = samplePathCfg graph 2
+            cfg = samplePathCfg graph (NodeId 2)
             states =
               Map.fromList
-                [ (0, PathState (Just 0) Nothing),
-                  (1, emptyPathState),
-                  (2, emptyPathState)
+                [ (NodeId 0, PathState (Just (Distance 0)) Nothing),
+                  (NodeId 1, emptyPathState),
+                  (NodeId 2, emptyPathState)
                 ]
         extractPathResult states cfg @?= Right NoPath,
       "extractPathResult fails when target is missing from states" ~: do
         let graph = sampleGraph
-            cfg = samplePathCfg graph 99
-            states = Map.singleton 0 (PathState (Just 0) Nothing)
-        extractPathResult states cfg @?= Left (TargetNodeMissing 99)
+            cfg = samplePathCfg graph (NodeId 99)
+            states = Map.singleton (NodeId 0) (PathState (Just (Distance 0)) Nothing)
+        extractPathResult states cfg @?= Left (TargetNodeMissing (NodeId 99))
     ]
 
 sampleGraph :: Graph
 sampleGraph =
   buildGraph
     3
-    [ Edge 0 1 Nothing,
-      Edge 1 2 Nothing
+    [ Edge (NodeId 0) (NodeId 1) Nothing,
+      Edge (NodeId 1) (NodeId 2) Nothing
     ]
 
 samplePathCfg :: Graph -> NodeId -> RunConfig
 samplePathCfg graph target =
   RunConfig
     { rcGraph = graph,
-      rcSource = 0,
+      rcSource = NodeId 0,
       rcTarget = Just target,
       rcThreads = 1,
       rcMaxSteps = 100,

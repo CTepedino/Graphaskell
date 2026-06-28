@@ -9,7 +9,7 @@ import Control.Concurrent (getNumCapabilities)
 import Data.Bifunctor (first)
 import Data.Char (toUpper)
 import Graph.Reading (readNonNegativeInt)
-import Graph.Types (Algorithm (..), NodeId)
+import Graph.Types (Algorithm (..), NodeId (..))
 import Options.Applicative
 import System.Exit (die)
 
@@ -26,7 +26,7 @@ data Options = Options
 
 parseNodeIdOpt :: String -> Either CliError NodeId
 parseNodeIdOpt raw =
-  first (InvalidNodeId . ("--source/--target: " ++)) (readNonNegativeInt raw)
+  first (InvalidNodeId . ("--source/--target: " ++)) (fmap NodeId . readNonNegativeInt $ raw)
 
 parseAlgorithmOpt :: String -> Either CliError Algorithm
 parseAlgorithmOpt raw =

@@ -7,7 +7,11 @@ module TestSupport
     examplesGraphPaths,
     labelPropagationExpected,
     pageRankExpected,
+    pathSourceTarget,
     readExampleGraph,
+    requireFixture,
+    shortestHops,
+    shortestWeightedDistance,
     validPath,
   )
 where
@@ -17,34 +21,51 @@ import Algorithm.Result (Result (..))
 import Algorithm.Spec (SomeAlgorithmSpec (..))
 import Algorithm.Types (AlgorithmSpec (..))
 import Data.List (isInfixOf)
+import Fixtures (FixtureError (..))
 import Graph.Parser (parseGraphFile)
-import Graph.Types (Graph, NodeId, neighbors, nodeCount)
+import Graph.Types
+  (     Distance (..),
+    Graph,
+    NodeId (..),
+    distancePlusWeight,
+    neighbors,
+    nodeCount,
+    zeroDistance,
+  )
 import Pregel.Engine (runPregel)
 import Pregel.Types
   ( PregelRun (..),
     RunConfig (..),
     mkRunConfig,
   )
+import qualified Data.Map.Strict as Map
+import qualified Data.Set as Set
 import SequentialEngine (runPregelSequential)
 import System.Directory (doesFileExist)
 import Test.HUnit (Assertion, (@?=), assertBool, assertFailure)
 
 pageRankExpected :: [(NodeId, Double)]
 pageRankExpected =
-  [ (0, 0.12002296283541904),
-    (1, 0.13951951841010618),
-    (2, 0.09679579532429514),
-    (3, 0.09679579532429514)
+  [ (NodeId 0, 0.12002296283541904),
+    (NodeId 1, 0.13951951841010618),
+    (NodeId 2, 0.09679579532429514),
+    (NodeId 3, 0.09679579532429514)
   ]
 
 labelPropagationExpected :: [(NodeId, NodeId)]
 labelPropagationExpected =
-  [ (0, 0),
-    (1, 0),
-    (2, 0),
-    (3, 0),
-    (4, 0)
+  [ (NodeId 0, NodeId 0),
+    (NodeId 1, NodeId 0),
+    (NodeId 2, NodeId 0),
+    (NodeId 3, NodeId 0),
+    (NodeId 4, NodeId 0)
   ]
+
+requireFixture :: Either FixtureError a -> IO a
+requireFixture (Right value) =
+  pure value
+requireFixture (Left err) =
+  assertFailure ("fixture failed: " ++ show err)
 
 assertEnginesAgree ::
   (MessageLog msg log, Eq log, Show log) =>
@@ -119,26 +140,106 @@ assertRankingsApprox epsilon expected result =
         expected
     other -> assertFailure ("expected Rankings, got " ++ show other)
 
-assertValidBfsPath :: Graph -> NodeId -> NodeId -> Int -> Result -> Assertion
+assertValidBfsPath :: Graph -> NodeId -> NodeId -> Distance -> Result -> Assertion
 assertValidBfsPath graph source target expectedDist result =
   case result of
     PathFound path dist -> do
       dist @?= expectedDist
       assertBool "path is non-empty" (not (null path))
-      head path @?= source
-      last path @?= target
-      assertBool "path follows edges" (validPath graph path)
+      case pathSourceTarget path of
+        Nothing ->
+          assertFailure "path must have source and target endpoints"
+        Just (pathSource, pathTarget) -> do
+          pathSource @?= source
+          pathTarget @?= target
+          assertBool "path follows edges" (validPath graph path)
     other -> assertFailure ("expected PathFound, got " ++ show other)
+
+pathSourceTarget :: [NodeId] -> Maybe (NodeId, NodeId)
+pathSourceTarget [] =
+  Nothing
+pathSourceTarget path =
+  case reverse path of
+    [] ->
+      Nothing
+    target : rest ->
+      case reverse rest of
+        [] ->
+          Just (target, target)
+        source : _ ->
+          Just (source, target)
 
 assertComponentsListed :: String -> String -> Assertion
 assertComponentsListed needle haystack =
   assertBool ("output missing " ++ show needle) (needle `isInfixOf` haystack)
 
 validPath :: Graph -> [NodeId] -> Bool
-validPath _ [] = True
-validPath _ [_] = True
+validPath _ [] =
+  True
+validPath _ [_] =
+  True
 validPath graph (from : to : rest) =
   any ((== to) . fst) (neighbors graph from) && validPath graph (to : rest)
+
+shortestHops :: Graph -> NodeId -> NodeId -> Maybe Int
+shortestHops graph source target
+  | source == target =
+      Just 0
+  | otherwise =
+      go [(source, 0)] Set.empty
+  where
+    go [] _ =
+      Nothing
+    go ((node, dist) : queue) visited
+      | node `Set.member` visited =
+          go queue visited
+      | node == target =
+          Just dist
+      | otherwise =
+          let visited' = Set.insert node visited
+              next =
+                [ (to, dist + 1)
+                  | (to, _) <- neighbors graph node,
+                    to `Set.notMember` visited'
+                ]
+           in go (queue ++ next) visited'
+
+shortestWeightedDistance :: Graph -> NodeId -> NodeId -> Maybe Distance
+shortestWeightedDistance graph source target
+  | source == target =
+      Just zeroDistance
+  | otherwise =
+      go (Map.singleton source zeroDistance) Set.empty
+  where
+    go dists visited
+      | Map.null dists =
+          Nothing
+      | otherwise =
+          case Map.minViewWithKey (Map.filterWithKey (\node _ -> node `Set.notMember` visited) dists) of
+            Nothing ->
+              Nothing
+            Just ((node, dist), rest) ->
+              if node == target
+                then Just dist
+                else
+                  let visited' = Set.insert node visited
+                      rest' =
+                        foldr
+                          (insertNeighbor node dist)
+                          rest
+                          (neighbors graph node)
+                   in go rest' visited'
+    insertNeighbor _from dist (to, maybeWeight) acc =
+      case maybeWeight of
+        Nothing ->
+          acc
+        Just weight ->
+          let candidate = distancePlusWeight dist weight
+           in case Map.lookup to acc of
+                Just current | candidate >= current ->
+                  acc
+                _ ->
+                  Map.insert to candidate acc
 
 examplesGraphPaths :: [FilePath]
 examplesGraphPaths =

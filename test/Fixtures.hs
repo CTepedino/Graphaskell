@@ -1,26 +1,34 @@
 module Fixtures
-  ( simpleGraphText,
+  ( FixtureError (..),
+    simpleGraphText,
     weightedGraphText,
     disconnectedGraphText,
     pageRankGraphText,
-    parseFixture,
     parseFixtureEither,
+    parseFixture,
+    resolveFixture,
+    resolveFixtureEither,
     runFixture,
     runFixtureEither,
-    resolveFixture,
-    requireRight,
   )
 where
 
+import Algorithm.Error (AlgorithmError)
 import Algorithm.Spec (SomeAlgorithmSpec (..), resolveAlgorithm)
 import Algorithm.Types (AlgorithmSpec (..))
 import Graph.ParseError (ParseError)
 import Graph.Parser (parseGraphFile)
 import Graph.Types (Algorithm (..), Graph, NodeId, nodeCount)
-import Pregel.Error (PregelError (..))
+import Pregel.Error (PregelError)
 import Output.Run (SomePregelRun (..))
 import Pregel.Types (RunConfig (..), mkRunConfig)
 import SequentialEngine (runPregelSequential)
+
+data FixtureError
+  = FixtureParse ParseError
+  | FixtureResolve AlgorithmError
+  | FixtureRun PregelError
+  deriving (Eq, Show)
 
 simpleGraphText :: String
 simpleGraphText =
@@ -67,48 +75,51 @@ pageRankGraphText =
       "1 3"
     ]
 
-requireRight :: Show e => Either e a -> a
-requireRight (Right value) = value
-requireRight (Left err) =
-  error ("requireRight: " ++ show err)
-
 parseFixtureEither :: String -> Either ParseError Graph
 parseFixtureEither =
   parseGraphFile
 
-parseFixture :: String -> Graph
-parseFixture =
-  requireRight . parseFixtureEither
+parseFixture :: String -> Either FixtureError Graph
+parseFixture text =
+  first FixtureParse (parseFixtureEither text)
+  where
+    first f (Left err) = Left (f err)
+    first _ (Right value) = Right value
 
-resolveFixture :: Algorithm -> Graph -> SomeAlgorithmSpec
+resolveFixtureEither :: Algorithm -> Graph -> Either AlgorithmError SomeAlgorithmSpec
+resolveFixtureEither algorithm graph =
+  resolveAlgorithm graph algorithm
+
+resolveFixture :: Algorithm -> Graph -> Either FixtureError SomeAlgorithmSpec
 resolveFixture algorithm graph =
-  requireRight (resolveAlgorithm graph algorithm)
-
-runFixture ::
-  Algorithm ->
-  NodeId ->
-  Maybe NodeId ->
-  String ->
-  SomePregelRun
-runFixture algorithm source target text =
-  requireRight (runFixtureEither algorithm source target text)
+  first FixtureResolve (resolveAlgorithm graph algorithm)
+  where
+    first f (Left err) = Left (f err)
+    first _ (Right value) = Right value
 
 runFixtureEither ::
   Algorithm ->
   NodeId ->
   Maybe NodeId ->
   String ->
-  Either PregelError SomePregelRun
-runFixtureEither algorithm source target text =
-  let graph = parseFixture text
-   in case resolveFixture algorithm graph of
-        SomeAlgorithmSpec spec ->
-          fmap
-            SomePregelRun
-            ( runPregelSequential
-                ( mkRunConfigFor spec graph source target 1)
-                spec
-            )
+  Either FixtureError SomePregelRun
+runFixtureEither algorithm source target text = do
+  graph <- parseFixture text
+  SomeAlgorithmSpec spec <- resolveFixture algorithm graph
+  run <- first FixtureRun (runPregelSequential (mkRunConfigFor spec graph source target 1) spec)
+  pure (SomePregelRun run)
+  where
+    first f (Left err) = Left (f err)
+    first _ (Right value) = Right value
+
+runFixture ::
+  Algorithm ->
+  NodeId ->
+  Maybe NodeId ->
+  String ->
+  Either FixtureError SomePregelRun
+runFixture =
+  runFixtureEither
 
 mkRunConfigFor ::
   AlgorithmSpec state msg log ->

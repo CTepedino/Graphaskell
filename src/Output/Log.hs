@@ -5,6 +5,7 @@ where
 
 import Algorithm.Log (LabelLogEntry (..), PathLogEntry (..), RankLogEntry (..))
 import Algorithm.Messages (DistanceMsg (..), LabelMsg (..), RankMsg (..))
+import Graph.Types (unNodeId)
 
 class DescribeLogEntry log where
   describeLogEntry :: log -> String
@@ -28,9 +29,9 @@ instance DescribeLogEntry (PathLogEntry DistanceMsg) where
   logEntrySortKey entry =
     case entry of
       PathDistanceUpdated nodeId _ ->
-        (0, nodeId, 0)
+        (0, unNodeId nodeId, 0)
       PathMessageSent from to _ ->
-        (1, from, to)
+        (1, unNodeId from, unNodeId to)
 
 instance DescribeLogEntry (LabelLogEntry LabelMsg) where
   describeLogEntry entry =
@@ -50,9 +51,9 @@ instance DescribeLogEntry (LabelLogEntry LabelMsg) where
   logEntrySortKey entry =
     case entry of
       LabelChanged nodeId _ ->
-        (0, nodeId, 0)
+        (0, unNodeId nodeId, 0)
       LabelMessageSent from to _ ->
-        (1, from, to)
+        (1, unNodeId from, unNodeId to)
 
 instance DescribeLogEntry (RankLogEntry RankMsg) where
   describeLogEntry entry =
@@ -72,6 +73,6 @@ instance DescribeLogEntry (RankLogEntry RankMsg) where
   logEntrySortKey entry =
     case entry of
       RankUpdated nodeId _ ->
-        (0, nodeId, 0)
+        (0, unNodeId nodeId, 0)
       RankMessageSent from to _ ->
-        (1, from, to)
+        (1, unNodeId from, unNodeId to)

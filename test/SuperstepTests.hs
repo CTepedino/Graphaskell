@@ -5,7 +5,7 @@ import Algorithm.Log (PathLogEntry (..))
 import Algorithm.Messages (DistanceMsg (..))
 import Algorithm.State (PathState (..), emptyPathState)
 import qualified Data.Map.Strict as Map
-import Graph.Types (Edge (..), buildGraph)
+import Graph.Types (Distance (..), Edge (..), NodeId (..), buildGraph, zeroDistance)
 import Graph.VertexContext (buildVertexContexts)
 import Pregel.Superstep
   ( SuperstepResult (..),
@@ -22,52 +22,54 @@ superstepTests =
         let graph =
               buildGraph
                 3
-                [ Edge 0 1 Nothing,
-                  Edge 1 2 Nothing
+                [ Edge (NodeId 0) (NodeId 1) Nothing,
+                  Edge (NodeId 1) (NodeId 2) Nothing
                 ]
             cfg =
               RunConfig
                 { rcGraph = graph,
-                  rcSource = 0,
-                  rcTarget = Just 2,
+                  rcSource = NodeId 0,
+                  rcTarget = Just (NodeId 2),
                   rcThreads = 1,
                   rcMaxSteps = 100,
                   rcTrace = True
                 }
             contexts = buildVertexContexts graph
             states = initialVertexStates bfsSpec cfg graph
-            messageFor 1 = [DistanceMsg 0 0]
+            messageFor :: NodeId -> [DistanceMsg]
+            messageFor (NodeId 1) = [DistanceMsg (NodeId 0) zeroDistance]
             messageFor _ = []
-        case processActiveVertices True bfsSpec contexts states messageFor [1] of
+        case processActiveVertices True bfsSpec contexts states messageFor [NodeId 1] of
           Right SuperstepResult {ssNewStates = newStates, ssOutgoing = outgoing, ssEntries = entries} -> do
-            Map.lookup 1 newStates
-              @?= Just (PathState (Just 1) (Just 0))
-            Map.lookup 0 newStates @?= Map.lookup 0 states
-            outgoing @?= [(2, DistanceMsg 1 1)]
-            PathDistanceUpdated 1 1 `elem` entries @?= True
+            Map.lookup (NodeId 1) newStates
+              @?= Just (PathState (Just (Distance 1)) (Just (NodeId 0)))
+            Map.lookup (NodeId 0) newStates @?= Map.lookup (NodeId 0) states
+            outgoing @?= [(NodeId 2, DistanceMsg (NodeId 1) (Distance 1))]
+            PathDistanceUpdated (NodeId 1) (Distance 1) `elem` entries @?= True
           Left err ->
             assertFailure ("expected successful superstep, got " ++ show err),
       "processActiveVertices leaves state unchanged without messages" ~: do
         let graph =
               buildGraph
                 2
-                [ Edge 0 1 Nothing
+                [ Edge (NodeId 0) (NodeId 1) Nothing
                 ]
             cfg =
               RunConfig
                 { rcGraph = graph,
-                  rcSource = 0,
-                  rcTarget = Just 1,
+                  rcSource = NodeId 0,
+                  rcTarget = Just (NodeId 1),
                   rcThreads = 1,
                   rcMaxSteps = 100,
                   rcTrace = False
                 }
             contexts = buildVertexContexts graph
             states = initialVertexStates bfsSpec cfg graph
+            messageFor :: NodeId -> [DistanceMsg]
             messageFor _ = []
-        case processActiveVertices False bfsSpec contexts states messageFor [1] of
+        case processActiveVertices False bfsSpec contexts states messageFor [NodeId 1] of
           Right SuperstepResult {ssNewStates = newStates, ssOutgoing = outgoing, ssEntries = entries} -> do
-            Map.lookup 1 newStates @?= Just emptyPathState
+            Map.lookup (NodeId 1) newStates @?= Just emptyPathState
             outgoing @?= []
             entries @?= []
           Left err ->

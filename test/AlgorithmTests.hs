@@ -4,18 +4,18 @@ import Algorithm.Error (AlgorithmError (..))
 import Algorithm.Result (Result (..))
 import Algorithm.Spec (resolveAlgorithm, validatePathTarget)
 import Fixtures
-  ( disconnectedGraphText,
+  ( FixtureError (..),
+    disconnectedGraphText,
     pageRankGraphText,
     parseFixture,
     resolveFixture,
-    runFixture,
     runFixtureEither,
     simpleGraphText,
     weightedGraphText,
   )
-import Graph.Types (Algorithm (..))
-import Pregel.Error (PregelError (..))
+import Graph.Types (Algorithm (..), Distance (..), NodeId (..))
 import Output.Run (somePregelResult)
+import Pregel.Error (PregelError (..))
 import Test.HUnit
 import TestSupport
   ( assertEnginesAgreeSome,
@@ -23,30 +23,34 @@ import TestSupport
     assertValidBfsPath,
     labelPropagationExpected,
     pageRankExpected,
+    requireFixture,
   )
 
 algorithmTests :: Test
 algorithmTests =
   TestList
     [ "BFS finds a minimum-hop path" ~: do
-        let graph = parseFixture simpleGraphText
-            run = runFixture BFS 0 (Just 4) simpleGraphText
-        assertValidBfsPath graph 0 4 3 (somePregelResult run),
+        graph <- requireFixture (parseFixture simpleGraphText)
+        someRun <-
+          requireFixture (runFixtureEither BFS (NodeId 0) (Just (NodeId 4)) simpleGraphText)
+        assertValidBfsPath graph (NodeId 0) (NodeId 4) (Distance 3) (somePregelResult someRun),
       "Bellman-Ford finds minimum weighted path" ~: do
-        let run = runFixture BellmanFord 0 (Just 3) weightedGraphText
-        somePregelResult run @?= PathFound [0, 2, 1, 3] 4,
+        someRun <-
+          requireFixture (runFixtureEither BellmanFord (NodeId 0) (Just (NodeId 3)) weightedGraphText)
+        somePregelResult someRun @?= PathFound [NodeId 0, NodeId 2, NodeId 1, NodeId 3] (Distance 4),
       "BFS reports no path" ~: do
-        let run = runFixture BFS 0 (Just 3) disconnectedGraphText
-        somePregelResult run @?= NoPath,
-      "BFS without target fails at extraction" ~:
-        ( case runFixtureEither BFS 0 Nothing simpleGraphText of
-            Left (ResultExtraction MissingPathTarget) ->
-              return ()
-            Left err ->
-              assertFailure ("expected MissingPathTarget extraction, got " ++ show err)
-            Right _ ->
-              assertFailure "expected extraction failure, got successful run"
-        ),
+        someRun <-
+          requireFixture (runFixtureEither BFS (NodeId 0) (Just (NodeId 3)) disconnectedGraphText)
+        somePregelResult someRun @?= NoPath,
+      "BFS without target fails at extraction" ~: do
+        let result = runFixtureEither BFS (NodeId 0) Nothing simpleGraphText
+        case result of
+          Left (FixtureRun (ResultExtraction MissingPathTarget)) ->
+            pure ()
+          Left err ->
+            assertFailure ("expected MissingPathTarget extraction, got " ++ show err)
+          Right _ ->
+            assertFailure "expected extraction failure, got successful run",
       "validatePathTarget rejects BFS without target" ~: do
         validatePathTarget BFS Nothing @?= Left MissingPathTarget,
       "validatePathTarget rejects Bellman-Ford without target" ~: do
@@ -54,55 +58,44 @@ algorithmTests =
       "validatePathTarget accepts PageRank without target" ~: do
         validatePathTarget PageRank Nothing @?= Right (),
       "Bellman-Ford rejects unweighted graph" ~: do
-        let graph = parseFixture simpleGraphText
+        graph <- requireFixture (parseFixture simpleGraphText)
         case resolveAlgorithm graph BellmanFord of
-          Left WeightedGraphRequired -> return ()
+          Left WeightedGraphRequired -> pure ()
           _ -> assertFailure "expected WeightedGraphRequired",
       "connected components list all groups in connected graph" ~: do
-        let run = runFixture ConnectedComponents 0 Nothing simpleGraphText
-        somePregelResult run @?= Components [(0, [0, 1, 2, 3, 4])],
+        someRun <-
+          requireFixture (runFixtureEither ConnectedComponents (NodeId 0) Nothing simpleGraphText)
+        somePregelResult someRun @?= Components [(NodeId 0, [NodeId 0, NodeId 1, NodeId 2, NodeId 3, NodeId 4])],
       "connected components list all groups in disconnected graph" ~: do
-        let run = runFixture ConnectedComponents 0 Nothing disconnectedGraphText
-        somePregelResult run @?= Components [(0, [0, 1]), (2, [2, 3])],
+        someRun <-
+          requireFixture (runFixtureEither ConnectedComponents (NodeId 0) Nothing disconnectedGraphText)
+        somePregelResult someRun @?= Components [(NodeId 0, [NodeId 0, NodeId 1]), (NodeId 2, [NodeId 2, NodeId 3])],
       "PageRank converges to expected rankings" ~: do
-        let run = runFixture PageRank 0 Nothing pageRankGraphText
-        assertRankingsApprox 1e-6 pageRankExpected (somePregelResult run),
+        someRun <-
+          requireFixture (runFixtureEither PageRank (NodeId 0) Nothing pageRankGraphText)
+        assertRankingsApprox 1e-6 pageRankExpected (somePregelResult someRun),
       "label propagation converges to expected labels" ~: do
-        let run = runFixture LabelPropagation 0 Nothing simpleGraphText
-        somePregelResult run @?= NodeLabels labelPropagationExpected,
-      "sequential and concurrent engines agree on BFS" ~:
-        assertEnginesAgreeSome
-          (parseFixture simpleGraphText)
-          0
-          (Just 4)
-          4
-          (resolveFixture BFS (parseFixture simpleGraphText)),
-      "sequential and concurrent engines agree on Bellman-Ford" ~:
-        assertEnginesAgreeSome
-          (parseFixture weightedGraphText)
-          0
-          (Just 3)
-          1
-          (resolveFixture BellmanFord (parseFixture weightedGraphText)),
-      "sequential and concurrent engines agree on connected components" ~:
-        assertEnginesAgreeSome
-          (parseFixture disconnectedGraphText)
-          0
-          Nothing
-          2
-          (resolveFixture ConnectedComponents (parseFixture disconnectedGraphText)),
-      "sequential and concurrent engines agree on PageRank" ~:
-        assertEnginesAgreeSome
-          (parseFixture pageRankGraphText)
-          0
-          Nothing
-          2
-          (resolveFixture PageRank (parseFixture pageRankGraphText)),
-      "sequential and concurrent engines agree on label propagation" ~:
-        assertEnginesAgreeSome
-          (parseFixture simpleGraphText)
-          0
-          Nothing
-          2
-          (resolveFixture LabelPropagation (parseFixture simpleGraphText))
+        someRun <-
+          requireFixture (runFixtureEither LabelPropagation (NodeId 0) Nothing simpleGraphText)
+        somePregelResult someRun @?= NodeLabels labelPropagationExpected,
+      "sequential and concurrent engines agree on BFS" ~: do
+        graph <- requireFixture (parseFixture simpleGraphText)
+        someSpec <- requireFixture (resolveFixture BFS graph)
+        assertEnginesAgreeSome graph (NodeId 0) (Just (NodeId 4)) 4 someSpec,
+      "sequential and concurrent engines agree on Bellman-Ford" ~: do
+        graph <- requireFixture (parseFixture weightedGraphText)
+        someSpec <- requireFixture (resolveFixture BellmanFord graph)
+        assertEnginesAgreeSome graph (NodeId 0) (Just (NodeId 3)) 1 someSpec,
+      "sequential and concurrent engines agree on connected components" ~: do
+        graph <- requireFixture (parseFixture disconnectedGraphText)
+        someSpec <- requireFixture (resolveFixture ConnectedComponents graph)
+        assertEnginesAgreeSome graph (NodeId 0) Nothing 2 someSpec,
+      "sequential and concurrent engines agree on PageRank" ~: do
+        graph <- requireFixture (parseFixture pageRankGraphText)
+        someSpec <- requireFixture (resolveFixture PageRank graph)
+        assertEnginesAgreeSome graph (NodeId 0) Nothing 2 someSpec,
+      "sequential and concurrent engines agree on label propagation" ~: do
+        graph <- requireFixture (parseFixture simpleGraphText)
+        someSpec <- requireFixture (resolveFixture LabelPropagation graph)
+        assertEnginesAgreeSome graph (NodeId 0) Nothing 2 someSpec
     ]

@@ -14,7 +14,7 @@ import Data.Char (isSpace)
 import Data.Foldable (traverse_)
 import Graph.ParseError
 import Graph.Reading (readNonNegativeInt, readPositiveInt)
-import Graph.Types
+import Graph.Types (Edge (..), Graph, NodeId (..), Weight (..), buildGraph, edgeWeight, graphEdges, graphNodes, isValidNode, neighbors, nodeCount)
 
 data LoadGraphError
   = LoadReadError FilePath String
@@ -115,7 +115,7 @@ parseEdgeLine st ws
         [fromStr, toStr, weightStr] -> do
           from <- parseNodeId CtxEdgeFrom fromStr
           to <- parseNodeId CtxEdgeTo toStr
-          weight <- parsePositive CtxEdgeWeight weightStr
+          weight <- parseWeight CtxEdgeWeight weightStr
           let edge = Edge from to (Just weight)
           Right st {psEdges = edge : psEdges st}
         _ -> Left InvalidWeightedEdge
@@ -161,11 +161,17 @@ parsePositive ctx raw =
     Left _ -> Left (InvalidPositiveInteger ctx raw)
     Right n -> Right n
 
+parseWeight :: ParseContext -> String -> Either ParseError Weight
+parseWeight ctx raw =
+  case readPositiveInt raw of
+    Left _ -> Left (InvalidPositiveInteger ctx raw)
+    Right n -> Right (Weight n)
+
 parseNodeId :: ParseContext -> String -> Either ParseError NodeId
 parseNodeId ctx raw =
   case readNonNegativeInt raw of
     Left _ -> Left (InvalidNodeId ctx raw)
-    Right n -> Right n
+    Right n -> Right (NodeId n)
 
 adjSummary :: Graph -> String
 adjSummary graph =

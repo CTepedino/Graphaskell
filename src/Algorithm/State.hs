@@ -8,10 +8,10 @@ module Algorithm.State
   )
 where
 
-import Graph.Types (NodeId)
+import Graph.Types (Distance, NodeId (..))
 
 data PathState = PathState
-  { psDistance :: Maybe Int,
+  { psDistance :: Maybe Distance,
     psPredecessor :: Maybe NodeId
   }
   deriving (Eq, Show)
@@ -35,7 +35,7 @@ emptyPathState =
 
 emptyLabelState :: LabelState
 emptyLabelState =
-  LabelState 0
+  LabelState (NodeId 0)
 
 emptyRankState :: RankState
 emptyRankState =

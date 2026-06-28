@@ -133,15 +133,15 @@ runVertexUpdate vtx state messages update emit =
     Just newState ->
       VertexStepResult newState (emit vtx newState)
 
-bfsCandidates :: [DistanceMsg] -> [(Int, NodeId)]
+bfsCandidates :: [DistanceMsg] -> [(Distance, NodeId)]
 bfsCandidates messages =
-  [ (dmDistance message + 1, dmFrom message)
+  [ (succDistance (dmDistance message), dmFrom message)
     | message <- messages
   ]
 
 tryImproveDistance ::
   NodeId ->
-  [(Int, NodeId)] ->
+  [(Distance, NodeId)] ->
   PathState ->
   Maybe PathState
 tryImproveDistance _ [] _ =
@@ -174,7 +174,7 @@ labelsFromMessages messages =
 
 minimumWithSelf :: NodeId -> [NodeId] -> NodeId
 minimumWithSelf self labels =
-  minimum (self : labels)
+  foldl min self labels
 
 labelBootstrap :: RunConfig -> [(NodeId, LabelMsg)]
 labelBootstrap cfg =
@@ -224,13 +224,13 @@ labelVertexUpdate update vtx state messages =
 pathInitState :: NodeId -> RunConfig -> PathState
 pathInitState nodeId cfg
   | nodeId == rcSource cfg =
-      emptyPathState {psDistance = Just 0}
+      emptyPathState {psDistance = Just zeroDistance}
   | otherwise =
       emptyPathState
 
-pathBootstrap :: (Maybe Int -> Bool) -> RunConfig -> [(NodeId, DistanceMsg)]
+pathBootstrap :: (Maybe Weight -> Bool) -> RunConfig -> [(NodeId, DistanceMsg)]
 pathBootstrap acceptWeight cfg =
-  [ (to, DistanceMsg (rcSource cfg) 0)
+  [ (to, DistanceMsg (rcSource cfg) zeroDistance)
     | (to, weight) <- neighbors (rcGraph cfg) (rcSource cfg),
       acceptWeight weight
   ]

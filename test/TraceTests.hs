@@ -6,12 +6,12 @@ import Algorithm.Result (Result (..))
 import Output.Result (describeResult)
 import Data.List (isInfixOf)
 import Fixtures (disconnectedGraphText, runFixture)
-import Graph.Types (Algorithm (..))
+import Graph.Types (Algorithm (..), Distance (..), NodeId (..), zeroDistance)
 import Output.Trace (describeRun)
 import Output.Run (SomePregelRun (..))
 import Pregel.Types (PregelRun (..), SuperstepLog (..))
 import Test.HUnit
-import TestSupport (assertComponentsListed)
+import TestSupport (assertComponentsListed, requireFixture)
 
 traceTests :: Test
 traceTests =
@@ -29,12 +29,12 @@ traceTests =
         assertBool "shows limit warning" $
           "maximum superstep limit reached" `isInfixOf` output,
       "describeRun formats connected components" ~: do
-        case runFixture ConnectedComponents 0 Nothing disconnectedGraphText of
-          SomePregelRun run -> do
-            let output = describeRun False run
-            assertComponentsListed "Result: connected components" output
-            assertComponentsListed "component 0: [0,1]" output
-            assertComponentsListed "component 2: [2,3]" output,
+        SomePregelRun run <-
+          requireFixture (runFixture ConnectedComponents (NodeId 0) Nothing disconnectedGraphText)
+        let output = describeRun False run
+        assertComponentsListed "Result: connected components" output
+        assertComponentsListed "component 0: [0,1]" output
+        assertComponentsListed "component 2: [2,3]" output,
       "describeRun formats PageRank rankings" ~: do
         let output = describeRun False pageRankRun
         assertBool "shows PageRank header" $
@@ -46,7 +46,7 @@ traceTests =
         assertBool "shows no path message" $
           "no path between source and target" `isInfixOf` output,
       "describeResult formats path found" ~: do
-        let output = describeResult (PathFound [0, 1, 2] 2)
+        let output = describeResult (PathFound [NodeId 0, NodeId 1, NodeId 2] (Distance 2))
         assertBool "shows path header" $
           "Result: path found" `isInfixOf` output
         assertBool "shows distance" $
@@ -56,7 +56,7 @@ traceTests =
       "describeResult formats no path" ~: do
         describeResult NoPath @?= "Result: no path between source and target",
       "describeResult formats connected components" ~: do
-        let output = describeResult (Components [(0, [0, 1]), (2, [2, 3])])
+        let output = describeResult (Components [(NodeId 0, [NodeId 0, NodeId 1]), (NodeId 2, [NodeId 2, NodeId 3])])
         assertBool "shows components header" $
           "Result: connected components" `isInfixOf` output
         assertBool "shows first component" $
@@ -64,13 +64,13 @@ traceTests =
         assertBool "shows second component" $
           "component 2: [2,3]" `isInfixOf` output,
       "describeResult formats PageRank rankings" ~: do
-        let output = describeResult (Rankings [(0, 0.1), (1, 0.2)])
+        let output = describeResult (Rankings [(NodeId 0, 0.1), (NodeId 1, 0.2)])
         assertBool "shows PageRank header" $
           "Result: PageRank" `isInfixOf` output
         assertBool "shows node rank line" $
           "node 0: 0.1" `isInfixOf` output,
       "describeResult formats label propagation" ~: do
-        let output = describeResult (NodeLabels [(0, 0), (1, 0)])
+        let output = describeResult (NodeLabels [(NodeId 0, NodeId 0), (NodeId 1, NodeId 0)])
         assertBool "shows label propagation header" $
           "Result: label propagation" `isInfixOf` output
         assertBool "shows node label line" $
@@ -89,12 +89,12 @@ sampleRun =
               sslActiveVertices = 1,
               sslMessagesSent = 1,
               sslEntries =
-                [ PathDistanceUpdated 0 1,
-                  PathMessageSent 0 1 (DistanceMsg 0 0)
+                [ PathDistanceUpdated (NodeId 0) (Distance 1),
+                  PathMessageSent (NodeId 0) (NodeId 1) (DistanceMsg (NodeId 0) zeroDistance)
                 ]
             }
         ],
-      prResult = PathFound [0, 1] 1,
+      prResult = PathFound [NodeId 0, NodeId 1] (Distance 1),
       prMaxStepsReached = False
     }
 
@@ -110,7 +110,7 @@ pageRankRun =
   PregelRun
     { prSupersteps = 1,
       prLogs = [],
-      prResult = Rankings [(0, 0.1), (1, 0.2), (2, 0.3), (3, 0.4)],
+      prResult = Rankings [(NodeId 0, 0.1), (NodeId 1, 0.2), (NodeId 2, 0.3), (NodeId 3, 0.4)],
       prMaxStepsReached = False
     }
 

@@ -8,7 +8,7 @@ module Algorithm.Log
 where
 
 import Algorithm.Messages (DistanceMsg (..), LabelMsg (..), RankMsg (..))
-import Graph.Types (NodeId)
+import Graph.Types (Distance, NodeId)
 
 class MessageLog msg log where
   messageSentLog :: NodeId -> NodeId -> msg -> log
@@ -24,7 +24,7 @@ messageSentLogs from outgoing =
   ]
 
 data PathLogEntry msg
-  = PathDistanceUpdated NodeId Int
+  = PathDistanceUpdated NodeId Distance
   | PathMessageSent NodeId NodeId msg
   deriving (Eq, Show)
 

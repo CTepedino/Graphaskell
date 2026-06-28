@@ -17,7 +17,7 @@ import Algorithm.Observability (pathObserver)
 import Algorithm.State (PathState, emptyPathState)
 import Algorithm.Types (AlgorithmSpec (..), PathLog)
 import Data.Maybe (isJust, mapMaybe)
-import Graph.Types (NodeId)
+import Graph.Types (Distance, NodeId, distancePlusWeight)
 import Graph.VertexContext
   ( VertexContext (..),
     lookupIncomingWeight,
@@ -56,8 +56,8 @@ bellmanFordUpdate vtx messages =
     (vcNodeId vtx)
     (mapMaybe (weightedCandidate vtx) messages)
 
-weightedCandidate :: VertexContext -> DistanceMsg -> Maybe (Int, NodeId)
+weightedCandidate :: VertexContext -> DistanceMsg -> Maybe (Distance, NodeId)
 weightedCandidate vtx message =
   fmap
-    (\weight -> (dmDistance message + weight, dmFrom message))
+    (\weight -> (distancePlusWeight (dmDistance message) weight, dmFrom message))
     (lookupIncomingWeight vtx (dmFrom message))

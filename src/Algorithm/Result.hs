@@ -3,10 +3,10 @@ module Algorithm.Result
   )
 where
 
-import Graph.Types (NodeId)
+import Graph.Types (Distance, NodeId)
 
 data Result
-  = PathFound [NodeId] Int
+  = PathFound [NodeId] Distance
   | NoPath
   | Components [(NodeId, [NodeId])]
   | Rankings [(NodeId, Double)]

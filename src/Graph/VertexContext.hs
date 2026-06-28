@@ -15,8 +15,8 @@ import Graph.Types
 
 data VertexContext = VertexContext
   { vcNodeId :: NodeId,
-    vcOutEdges :: [(NodeId, Maybe Int)],
-    vcInWeights :: Map NodeId Int,
+    vcOutEdges :: [(NodeId, Maybe Weight)],
+    vcInWeights :: Map NodeId Weight,
     vcNodeCount :: Int
   }
   deriving (Eq, Show)
@@ -38,7 +38,7 @@ buildVertexContexts graph =
         | nodeId <- graphNodes graph
         ]
 
-incomingWeights :: Graph -> NodeId -> Map NodeId Int
+incomingWeights :: Graph -> NodeId -> Map NodeId Weight
 incomingWeights graph nodeId =
   Map.fromList
     [ (edgeFrom edge, weight)
@@ -47,7 +47,7 @@ incomingWeights graph nodeId =
         Just weight <- [edgeWeight edge]
     ]
 
-lookupIncomingWeight :: VertexContext -> NodeId -> Maybe Int
+lookupIncomingWeight :: VertexContext -> NodeId -> Maybe Weight
 lookupIncomingWeight vtx from =
   Map.lookup from (vcInWeights vtx)
 
