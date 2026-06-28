@@ -1,10 +1,17 @@
 module Pregel.Engine
-  ( mkRunConfig,
-    runPregel,
+  ( runPathPregel,
+    runGlobalPregel,
   )
 where
 
-import Algorithm.Types (AlgorithmSpec (..))
+import Algorithm.Types
+  ( AlgorithmSpec (..),
+    GlobalAlgorithmSpec,
+    PathAlgorithmSpec,
+    PathLog,
+    globalRunSpec,
+    pathRunSpec,
+  )
 import Control.Concurrent.STM (atomically)
 import qualified Data.Map.Strict as Map
 import Graph.Types
@@ -26,24 +33,19 @@ import Pregel.Superstep
   )
 import Pregel.Types
 
-mkRunConfig ::
-  Graph ->
-  NodeId ->
-  Maybe NodeId ->
-  Int ->
-  AlgorithmSpec state msg log ->
-  RunConfig
-mkRunConfig graph source target threads spec =
-  RunConfig
-    { rcGraph = graph,
-      rcSource = source,
-      rcTarget = target,
-      rcThreads = threads,
-      rcMaxSteps = specMaxSupersteps spec (nodeCount graph)
-    }
+runPathPregel ::
+  PathRunConfig ->
+  PathAlgorithmSpec ->
+  IO (Either PregelError (PregelRun PathLog))
+runPathPregel prc pathSpec =
+  runConcurrent (pathRunConfigToRunConfig prc) (pathRunSpec pathSpec prc)
 
-runPregel :: RunConfig -> AlgorithmSpec state msg log -> IO (Either PregelError (PregelRun log))
-runPregel = runConcurrent
+runGlobalPregel ::
+  RunConfig ->
+  GlobalAlgorithmSpec state msg log ->
+  IO (Either PregelError (PregelRun log))
+runGlobalPregel cfg globalSpec =
+  runConcurrent cfg (globalRunSpec globalSpec cfg)
 
 runConcurrent :: RunConfig -> AlgorithmSpec state msg log -> IO (Either PregelError (PregelRun log))
 runConcurrent cfg spec = do
@@ -58,10 +60,10 @@ runConcurrent cfg spec = do
     Right () -> do
       runResult <-
         loopConcurrent cfg spec contexts 0 initialStates env
-      pure (runResult >>= buildRun cfg spec)
+      pure (runResult >>= buildRun spec)
   where
-    buildRun cfg' spec' (finalStates, logs, steps, maxStepsReached) =
-      case specExtractResult spec' finalStates cfg' of
+    buildRun spec' (finalStates, logs, steps, maxStepsReached) =
+      case specExtractResult spec' finalStates of
         Left algoErr ->
           Left (ResultExtraction algoErr)
         Right result ->

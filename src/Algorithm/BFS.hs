@@ -1,12 +1,11 @@
 module Algorithm.BFS
-  ( bfsSpec,
+  ( bfsPathSpec,
   )
 where
 
 import Algorithm.Common
-  ( VertexUpdate (..),
+  ( bfsCandidates,
     extractPathResult,
-    bfsCandidates,
     pathBootstrap,
     pathInitState,
     pathMaxSupersteps,
@@ -15,23 +14,24 @@ import Algorithm.Common
   )
 import Algorithm.Log (PathLogEntry)
 import Algorithm.Messages (DistanceMsg (..))
+import Algorithm.Observability (pathObserver)
 import Algorithm.State (PathState (..), emptyPathState)
-import Algorithm.Types (AlgorithmSpec (..))
+import Algorithm.Types (PathAlgorithmSpec (..))
 import Graph.Types (NodeId)
 import Graph.VertexContext (VertexContext (..), outNeighbors)
 import Pregel.Types
 
 type BfsLog = PathLogEntry DistanceMsg
 
-bfsSpec :: AlgorithmSpec PathState DistanceMsg BfsLog
-bfsSpec =
-  AlgorithmSpec
-    { specInitState = pathInitState,
-      specDefaultState = emptyPathState,
-      specBootstrap = pathBootstrap (const True),
-      specVertexUpdate = vertexUpdate,
-      specExtractResult = extractPathResult,
-      specMaxSupersteps = pathMaxSupersteps
+bfsPathSpec :: PathAlgorithmSpec
+bfsPathSpec =
+  PathAlgorithmSpec
+    { psInitState = pathInitState,
+      psDefaultState = emptyPathState,
+      psBootstrap = pathBootstrap (const True),
+      psVertexUpdate = vertexUpdate,
+      psExtractResult = extractPathResult,
+      psMaxSupersteps = pathMaxSupersteps
     }
 
 vertexUpdate ::
@@ -40,10 +40,17 @@ vertexUpdate ::
   [DistanceMsg] ->
   VertexStepResult PathState DistanceMsg BfsLog
 vertexUpdate vtx state messages =
-  runVertexUpdate vtx state messages (bfsUpdate (vcNodeId vtx)) emitOutgoing
+  runVertexUpdate
+    vtx
+    state
+    messages
+    (bfsUpdate (vcNodeId vtx))
+    emitOutgoing
+    pathObserver
 
-bfsUpdate :: NodeId -> [DistanceMsg] -> PathState -> VertexUpdate PathState DistanceMsg BfsLog
-bfsUpdate nodeId messages = tryImproveDistance nodeId (bfsCandidates messages)
+bfsUpdate :: NodeId -> [DistanceMsg] -> PathState -> Maybe PathState
+bfsUpdate nodeId messages =
+  tryImproveDistance nodeId (bfsCandidates messages)
 
 emitOutgoing :: VertexContext -> PathState -> [(NodeId, DistanceMsg)]
 emitOutgoing vtx state =

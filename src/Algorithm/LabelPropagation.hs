@@ -1,21 +1,21 @@
 module Algorithm.LabelPropagation
-  ( labelPropagationSpec,
+  ( labelPropagationGlobalSpec,
   )
 where
 
 import Algorithm.Common
-  ( VertexUpdate (..),
+  ( emitLabelMessages,
     extractLabelResult,
     labelBootstrap,
     labelMaxSupersteps,
     runVertexUpdate,
     tryRelabel,
-    emitLabelMessages,
   )
 import Algorithm.Log (LabelLogEntry)
 import Algorithm.Messages (LabelMsg (..))
+import Algorithm.Observability (labelObserver)
 import Algorithm.State (LabelState (..), emptyLabelState)
-import Algorithm.Types (AlgorithmSpec (..))
+import Algorithm.Types (GlobalAlgorithmSpec (..))
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import Graph.Types
@@ -24,15 +24,16 @@ import Pregel.Types
 
 type LabelPropagationLog = LabelLogEntry LabelMsg
 
-labelPropagationSpec :: AlgorithmSpec LabelState LabelMsg LabelPropagationLog
-labelPropagationSpec =
-  AlgorithmSpec
-    { specInitState = initState,
-      specDefaultState = emptyLabelState,
-      specBootstrap = bootstrap,
-      specVertexUpdate = vertexUpdate,
-      specExtractResult = extractLabelResult,
-      specMaxSupersteps = labelMaxSupersteps
+labelPropagationGlobalSpec :: GlobalAlgorithmSpec LabelState LabelMsg LabelPropagationLog
+labelPropagationGlobalSpec =
+  GlobalAlgorithmSpec
+    { globalInitState = initState,
+      globalDefaultState = emptyLabelState,
+      globalBootstrap = bootstrap,
+      globalVertexUpdate = vertexUpdate,
+      globalExtractResult = extractLabelResult,
+      globalMaxSupersteps = labelMaxSupersteps,
+      globalObserveStep = labelObserver
     }
 
 initState :: NodeId -> RunConfig -> LabelState
@@ -48,9 +49,15 @@ vertexUpdate ::
   [LabelMsg] ->
   VertexStepResult LabelState LabelMsg LabelPropagationLog
 vertexUpdate vtx state messages =
-  runVertexUpdate vtx state messages (lpaUpdate (vcNodeId vtx)) emitLabelMessages
+  runVertexUpdate
+    vtx
+    state
+    messages
+    (lpaUpdate (vcNodeId vtx))
+    emitLabelMessages
+    labelObserver
 
-lpaUpdate :: NodeId -> [LabelMsg] -> LabelState -> VertexUpdate LabelState LabelMsg LabelPropagationLog
+lpaUpdate :: NodeId -> [LabelMsg] -> LabelState -> Maybe LabelState
 lpaUpdate nodeId messages state =
   let newLabel = majorityLabel (lsLabel state) messages
    in tryRelabel nodeId newLabel state

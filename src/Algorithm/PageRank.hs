@@ -1,13 +1,14 @@
 module Algorithm.PageRank
-  ( pageRankSpec,
+  ( pageRankGlobalSpec,
   )
 where
 
-import Algorithm.Common (VertexUpdate (..), extractRankingsResult, pageRankMaxSupersteps, runVertexUpdate)
+import Algorithm.Common (extractRankingsResult, pageRankMaxSupersteps, runVertexUpdate)
 import Algorithm.Log (RankLogEntry (..))
 import Algorithm.Messages (RankMsg (..))
+import Algorithm.Observability (rankObserver)
 import Algorithm.State (RankState (..), emptyRankState)
-import Algorithm.Types (AlgorithmSpec (..))
+import Algorithm.Types (GlobalAlgorithmSpec (..))
 import Graph.Types
 import Graph.VertexContext (VertexContext (..), outNeighbors, outDegree)
 import Pregel.Types
@@ -20,15 +21,16 @@ rankEpsilon = 1e-9
 
 type PageRankLog = RankLogEntry RankMsg
 
-pageRankSpec :: AlgorithmSpec RankState RankMsg PageRankLog
-pageRankSpec =
-  AlgorithmSpec
-    { specInitState = initState,
-      specDefaultState = emptyRankState,
-      specBootstrap = bootstrap,
-      specVertexUpdate = vertexUpdate,
-      specExtractResult = extractRankingsResult,
-      specMaxSupersteps = pageRankMaxSupersteps
+pageRankGlobalSpec :: GlobalAlgorithmSpec RankState RankMsg PageRankLog
+pageRankGlobalSpec =
+  GlobalAlgorithmSpec
+    { globalInitState = initState,
+      globalDefaultState = emptyRankState,
+      globalBootstrap = bootstrap,
+      globalVertexUpdate = vertexUpdate,
+      globalExtractResult = extractRankingsResult,
+      globalMaxSupersteps = pageRankMaxSupersteps,
+      globalObserveStep = rankObserver
     }
 
 initState :: NodeId -> RunConfig -> RankState
@@ -56,19 +58,22 @@ vertexUpdate ::
 vertexUpdate vtx state messages =
   let n = fromIntegral (vcNodeCount vtx)
       nodeId = vcNodeId vtx
-   in runVertexUpdate vtx state messages (pageRankUpdate n nodeId) emitOutgoing
+   in runVertexUpdate
+        vtx
+        state
+        messages
+        (pageRankUpdate n nodeId)
+        emitOutgoing
+        rankObserver
 
-pageRankUpdate :: Double -> NodeId -> [RankMsg] -> RankState -> VertexUpdate RankState RankMsg PageRankLog
-pageRankUpdate n nodeId messages state =
+pageRankUpdate :: Double -> NodeId -> [RankMsg] -> RankState -> Maybe RankState
+pageRankUpdate n _nodeId messages state =
   let oldRank = rsRank state
       incoming = sum [rmRank message | message <- messages]
       newRank = (1 - damping) / n + damping * incoming
    in if abs (newRank - oldRank) <= rankEpsilon
-        then Unchanged
-        else
-          Updated
-            (RankState newRank)
-            [RankUpdated nodeId newRank]
+        then Nothing
+        else Just (RankState newRank)
 
 emitOutgoing :: VertexContext -> RankState -> [(NodeId, RankMsg)]
 emitOutgoing vtx state =

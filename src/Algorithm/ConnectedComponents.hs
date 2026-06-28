@@ -1,11 +1,10 @@
 module Algorithm.ConnectedComponents
-  ( connectedComponentsSpec,
+  ( connectedComponentsGlobalSpec,
   )
 where
 
 import Algorithm.Common
-  ( VertexUpdate (..),
-    emitLabelMessages,
+  ( emitLabelMessages,
     extractComponentResult,
     labelBootstrap,
     labelMaxSupersteps,
@@ -16,23 +15,25 @@ import Algorithm.Common
   )
 import Algorithm.Log (LabelLogEntry)
 import Algorithm.Messages (LabelMsg)
+import Algorithm.Observability (labelObserver)
 import Algorithm.State (LabelState (..), emptyLabelState)
-import Algorithm.Types (AlgorithmSpec (..))
+import Algorithm.Types (GlobalAlgorithmSpec (..))
 import Graph.Types
 import Graph.VertexContext (VertexContext (..))
 import Pregel.Types
 
 type ComponentLog = LabelLogEntry LabelMsg
 
-connectedComponentsSpec :: AlgorithmSpec LabelState LabelMsg ComponentLog
-connectedComponentsSpec =
-  AlgorithmSpec
-    { specInitState = initState,
-      specDefaultState = emptyLabelState,
-      specBootstrap = bootstrap,
-      specVertexUpdate = vertexUpdate,
-      specExtractResult = extractComponentResult,
-      specMaxSupersteps = labelMaxSupersteps
+connectedComponentsGlobalSpec :: GlobalAlgorithmSpec LabelState LabelMsg ComponentLog
+connectedComponentsGlobalSpec =
+  GlobalAlgorithmSpec
+    { globalInitState = initState,
+      globalDefaultState = emptyLabelState,
+      globalBootstrap = bootstrap,
+      globalVertexUpdate = vertexUpdate,
+      globalExtractResult = extractComponentResult,
+      globalMaxSupersteps = labelMaxSupersteps,
+      globalObserveStep = labelObserver
     }
 
 initState :: NodeId -> RunConfig -> LabelState
@@ -48,9 +49,15 @@ vertexUpdate ::
   [LabelMsg] ->
   VertexStepResult LabelState LabelMsg ComponentLog
 vertexUpdate vtx state messages =
-  runVertexUpdate vtx state messages (ccUpdate (vcNodeId vtx)) emitLabelMessages
+  runVertexUpdate
+    vtx
+    state
+    messages
+    (ccUpdate (vcNodeId vtx))
+    emitLabelMessages
+    labelObserver
 
-ccUpdate :: NodeId -> [LabelMsg] -> LabelState -> VertexUpdate LabelState LabelMsg ComponentLog
+ccUpdate :: NodeId -> [LabelMsg] -> LabelState -> Maybe LabelState
 ccUpdate nodeId messages state =
   let newLabel = minimumWithSelf (lsLabel state) (labelsFromMessages messages)
    in tryRelabel nodeId newLabel state

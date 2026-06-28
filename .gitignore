@@ -22,10 +22,8 @@ cabal.project.local~
 .HTF/
 .ghc.environment.*
 
-*.txt
 .idea/*
 docs/
-
 
 # Dependencies
 node_modules/

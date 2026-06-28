@@ -1,11 +1,10 @@
 module Algorithm.BellmanFord
-  ( bellmanFordSpec,
+  ( bellmanFordPathSpec,
   )
 where
 
 import Algorithm.Common
-  ( VertexUpdate (..),
-    extractPathResult,
+  ( extractPathResult,
     pathBootstrap,
     pathInitState,
     pathMaxSupersteps,
@@ -14,8 +13,9 @@ import Algorithm.Common
   )
 import Algorithm.Log (PathLogEntry)
 import Algorithm.Messages (DistanceMsg (..))
+import Algorithm.Observability (pathObserver)
 import Algorithm.State (PathState (..), emptyPathState)
-import Algorithm.Types (AlgorithmSpec (..))
+import Algorithm.Types (PathAlgorithmSpec (..))
 import Data.Maybe (isJust, mapMaybe)
 import Graph.Types (NodeId)
 import Graph.VertexContext
@@ -27,15 +27,15 @@ import Pregel.Types
 
 type BellmanFordLog = PathLogEntry DistanceMsg
 
-bellmanFordSpec :: AlgorithmSpec PathState DistanceMsg BellmanFordLog
-bellmanFordSpec =
-  AlgorithmSpec
-    { specInitState = pathInitState,
-      specDefaultState = emptyPathState,
-      specBootstrap = pathBootstrap isJust,
-      specVertexUpdate = vertexUpdate,
-      specExtractResult = extractPathResult,
-      specMaxSupersteps = pathMaxSupersteps
+bellmanFordPathSpec :: PathAlgorithmSpec
+bellmanFordPathSpec =
+  PathAlgorithmSpec
+    { psInitState = pathInitState,
+      psDefaultState = emptyPathState,
+      psBootstrap = pathBootstrap isJust,
+      psVertexUpdate = vertexUpdate,
+      psExtractResult = extractPathResult,
+      psMaxSupersteps = pathMaxSupersteps
     }
 
 vertexUpdate ::
@@ -44,9 +44,15 @@ vertexUpdate ::
   [DistanceMsg] ->
   VertexStepResult PathState DistanceMsg BellmanFordLog
 vertexUpdate vtx state messages =
-  runVertexUpdate vtx state messages (bellmanFordUpdate vtx) emitOutgoing
+  runVertexUpdate
+    vtx
+    state
+    messages
+    (bellmanFordUpdate vtx)
+    emitOutgoing
+    pathObserver
 
-bellmanFordUpdate :: VertexContext -> [DistanceMsg] -> PathState -> VertexUpdate PathState DistanceMsg BellmanFordLog
+bellmanFordUpdate :: VertexContext -> [DistanceMsg] -> PathState -> Maybe PathState
 bellmanFordUpdate vtx messages =
   tryImproveDistance
     (vcNodeId vtx)

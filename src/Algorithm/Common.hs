@@ -1,6 +1,5 @@
 module Algorithm.Common
-  ( VertexUpdate (..),
-    validateWeightedGraph,
+  ( validateWeightedGraph,
     extractPathResult,
     extractComponentResult,
     extractRankingsResult,
@@ -24,11 +23,7 @@ module Algorithm.Common
 where
 
 import Algorithm.Error (AlgorithmError (..))
-import Algorithm.Log
-  ( LabelLogEntry (..),
-    MessageLog (..),
-    PathLogEntry (..),
-  )
+import Algorithm.Log (MessageLog (..))
 import Algorithm.Messages (DistanceMsg (..), LabelMsg (..))
 import Algorithm.Result (Result (..))
 import Algorithm.State
@@ -44,12 +39,7 @@ import qualified Data.Map.Strict as Map
 import Data.Ord (comparing)
 import Graph.Types
 import Graph.VertexContext (VertexContext, outNeighbors, vcNodeId)
-import Pregel.Types
-
-data VertexUpdate state msg log
-  = Unchanged
-  | Updated state [log]
-  deriving (Eq, Show)
+import Pregel.Types (PathRunConfig (..), RunConfig (..), VertexStepResult (..))
 
 validateWeightedGraph :: Graph -> Either AlgorithmError ()
 validateWeightedGraph graph
@@ -60,23 +50,19 @@ validateWeightedGraph graph
   | otherwise =
       Left WeightedGraphRequired
 
-extractPathResult :: Map NodeId PathState -> RunConfig -> Either AlgorithmError Result
+extractPathResult :: Map NodeId PathState -> PathRunConfig -> Either AlgorithmError Result
 extractPathResult states cfg =
-  case rcTarget cfg of
+  case Map.lookup (prcTarget cfg) states of
     Nothing ->
-      Left MissingPathTarget
-    Just target ->
-      case Map.lookup target states of
-        Nothing ->
-          Left (TargetNodeMissing target)
-        Just vertexState ->
-          case psDistance vertexState of
-            Nothing -> Right NoPath
-            Just dist ->
-              let path = reconstructPath states target (rcSource cfg)
-               in if null path
-                    then Right NoPath
-                    else Right (PathFound path dist)
+      Left (TargetNodeMissing (prcTarget cfg))
+    Just vertexState ->
+      case psDistance vertexState of
+        Nothing -> Right NoPath
+        Just dist ->
+          let path = reconstructPath states (prcTarget cfg) (prcSource cfg)
+           in if null path
+                then Right NoPath
+                else Right (PathFound path dist)
 
 extractComponentResult :: Map NodeId LabelState -> RunConfig -> Either AlgorithmError Result
 extractComponentResult states _cfg =
@@ -134,16 +120,18 @@ runVertexUpdate ::
   VertexContext ->
   state ->
   [msg] ->
-  ([msg] -> state -> VertexUpdate state msg log) ->
+  ([msg] -> state -> Maybe state) ->
   (VertexContext -> state -> [(NodeId, msg)]) ->
+  (NodeId -> state -> state -> [(NodeId, msg)] -> [log]) ->
   VertexStepResult state msg log
-runVertexUpdate vtx state messages update emit =
+runVertexUpdate vtx state messages update emit observe =
   let nodeId = vcNodeId vtx
    in case update messages state of
-        Unchanged ->
-          stepResult nodeId state [] []
-        Updated newState logs ->
-          stepResult nodeId newState (emit vtx newState) logs
+        Nothing ->
+          stepResult nodeId state [] (observe nodeId state state [])
+        Just newState ->
+          let outgoing = emit vtx newState
+           in stepResult nodeId newState outgoing (observe nodeId state newState outgoing)
 
 stepResult ::
   MessageLog msg log =>
@@ -173,36 +161,28 @@ tryImproveDistance ::
   NodeId ->
   [(Int, NodeId)] ->
   PathState ->
-  VertexUpdate PathState DistanceMsg (PathLogEntry DistanceMsg)
+  Maybe PathState
 tryImproveDistance _ [] _ =
-  Unchanged
-tryImproveDistance nodeId candidates state =
+  Nothing
+tryImproveDistance _nodeId candidates state =
   let (newDist, predecessor) =
         minimumBy (comparing fst <> comparing snd) candidates
    in case psDistance state of
         Just current | newDist >= current ->
-          Unchanged
+          Nothing
         _ ->
-          Updated
+          Just
             ( state
                 { psDistance = Just newDist,
                   psPredecessor = Just predecessor
                 }
             )
-            [PathDistanceUpdated nodeId newDist]
 
-tryRelabel ::
-  NodeId ->
-  NodeId ->
-  LabelState ->
-  VertexUpdate LabelState LabelMsg (LabelLogEntry LabelMsg)
-tryRelabel nodeId newLabel state =
+tryRelabel :: NodeId -> NodeId -> LabelState -> Maybe LabelState
+tryRelabel _nodeId newLabel state =
   if newLabel == lsLabel state
-    then Unchanged
-    else
-      Updated
-        (LabelState newLabel)
-        [LabelChanged nodeId newLabel]
+    then Nothing
+    else Just (LabelState newLabel)
 
 labelsFromMessages :: [LabelMsg] -> [NodeId]
 labelsFromMessages messages =
@@ -228,17 +208,17 @@ emitLabelMessages vtx state =
     | to <- outNeighbors vtx
   ]
 
-pathInitState :: NodeId -> RunConfig -> PathState
+pathInitState :: NodeId -> PathRunConfig -> PathState
 pathInitState nodeId cfg
-  | nodeId == rcSource cfg =
+  | nodeId == prcSource cfg =
       emptyPathState {psDistance = Just 0}
   | otherwise =
       emptyPathState
 
-pathBootstrap :: (Maybe Int -> Bool) -> RunConfig -> [(NodeId, DistanceMsg)]
+pathBootstrap :: (Maybe Int -> Bool) -> PathRunConfig -> [(NodeId, DistanceMsg)]
 pathBootstrap acceptWeight cfg =
-  [ (to, DistanceMsg (rcSource cfg) 0)
-    | (to, weight) <- neighbors (rcGraph cfg) (rcSource cfg),
+  [ (to, DistanceMsg (prcSource cfg) 0)
+    | (to, weight) <- neighbors (prcGraph cfg) (prcSource cfg),
       acceptWeight weight
   ]
 

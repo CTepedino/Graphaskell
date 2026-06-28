@@ -1,10 +1,17 @@
 module SequentialEngine
-  ( runSequential,
-    runSomeSequential,
+  ( runPathSequential,
+    runGlobalSequential,
   )
 where
 
-import Algorithm.Types (AlgorithmSpec (..), SomeAlgorithmSpec (..))
+import Algorithm.Types
+  ( AlgorithmSpec (..),
+    GlobalAlgorithmSpec,
+    PathAlgorithmSpec (..),
+    PathLog,
+    globalRunSpec,
+    pathRunSpec,
+  )
 import qualified Data.Map.Strict as Map
 import Graph.VertexContext (VertexContexts, buildVertexContexts)
 import Pregel.Error (PregelError (..))
@@ -18,9 +25,19 @@ import Pregel.Superstep
   )
 import Pregel.Types
 
-runSomeSequential :: RunConfig -> SomeAlgorithmSpec -> Either PregelError SomePregelRun
-runSomeSequential cfg (SomeAlgorithmSpec spec) =
-  fmap SomePregelRun (runSequential cfg spec)
+runPathSequential ::
+  PathRunConfig ->
+  PathAlgorithmSpec ->
+  Either PregelError (PregelRun PathLog)
+runPathSequential prc pathSpec =
+  runSequential (pathRunConfigToRunConfig prc) (pathRunSpec pathSpec prc)
+
+runGlobalSequential ::
+  RunConfig ->
+  GlobalAlgorithmSpec state msg log ->
+  Either PregelError (PregelRun log)
+runGlobalSequential cfg globalSpec =
+  runSequential cfg (globalRunSpec globalSpec cfg)
 
 runSequential :: RunConfig -> AlgorithmSpec state msg log -> Either PregelError (PregelRun log)
 runSequential cfg spec = do
@@ -30,7 +47,7 @@ runSequential cfg spec = do
       initialQueues = enqueueMessages Map.empty (specBootstrap spec cfg)
   (finalStates, logs, steps, maxStepsReached) <-
     loop contexts spec cfg 0 initialStates initialQueues
-  case specExtractResult spec finalStates cfg of
+  case specExtractResult spec finalStates of
     Left algoErr ->
       Left (ResultExtraction algoErr)
     Right result ->

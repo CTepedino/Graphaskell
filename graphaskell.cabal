@@ -27,6 +27,7 @@ library
         Algorithm.LabelPropagation,
         Algorithm.Log,
         Algorithm.Messages,
+        Algorithm.Observability,
         Algorithm.PageRank,
         Algorithm.Result,
         Algorithm.Spec,

@@ -3,10 +3,14 @@ module Pregel.Types
     PregelRun (..),
     SomePregelRun (..),
     somePregelResult,
+    PathRunConfig (..),
     RunConfig (..),
     VertexStepResult (..),
     VertexStates,
     MessageQueues,
+    pathRunConfigToRunConfig,
+    mkPathRunConfig,
+    mkRunConfig,
   )
 where
 
@@ -38,14 +42,56 @@ somePregelResult :: SomePregelRun -> Result
 somePregelResult (SomePregelRun run) =
   prResult run
 
+data PathRunConfig = PathRunConfig
+  { prcGraph :: Graph,
+    prcSource :: NodeId,
+    prcTarget :: NodeId,
+    prcThreads :: Int,
+    prcMaxSteps :: Int
+  }
+  deriving (Eq, Show)
+
 data RunConfig = RunConfig
   { rcGraph :: Graph,
     rcSource :: NodeId,
-    rcTarget :: Maybe NodeId,
     rcThreads :: Int,
     rcMaxSteps :: Int
   }
   deriving (Eq, Show)
+
+pathRunConfigToRunConfig :: PathRunConfig -> RunConfig
+pathRunConfigToRunConfig prc =
+  RunConfig
+    { rcGraph = prcGraph prc,
+      rcSource = prcSource prc,
+      rcThreads = prcThreads prc,
+      rcMaxSteps = prcMaxSteps prc
+    }
+
+mkPathRunConfig ::
+  Graph ->
+  NodeId ->
+  NodeId ->
+  Int ->
+  Int ->
+  PathRunConfig
+mkPathRunConfig graph source target threads maxSteps =
+  PathRunConfig
+    { prcGraph = graph,
+      prcSource = source,
+      prcTarget = target,
+      prcThreads = threads,
+      prcMaxSteps = maxSteps
+    }
+
+mkRunConfig :: Graph -> NodeId -> Int -> Int -> RunConfig
+mkRunConfig graph source threads maxSteps =
+  RunConfig
+    { rcGraph = graph,
+      rcSource = source,
+      rcThreads = threads,
+      rcMaxSteps = maxSteps
+    }
 
 data VertexStepResult state msg log = VertexStepResult
   { vsrState :: state,

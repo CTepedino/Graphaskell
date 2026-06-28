@@ -1,6 +1,7 @@
 module TestSupport
   ( assertComponentsListed,
-    assertEnginesAgree,
+    assertEnginesAgreeGlobal,
+    assertEnginesAgreePath,
     assertEnginesAgreeSome,
     assertRankingsApprox,
     assertValidBfsPath,
@@ -13,13 +14,20 @@ module TestSupport
 where
 
 import Algorithm.Result (Result (..))
-import Algorithm.Types (AlgorithmSpec, SomeAlgorithmSpec (..))
+import Algorithm.Spec (SomeAlgorithmSpec (..))
+import Algorithm.Types (GlobalAlgorithmSpec (..), PathAlgorithmSpec (..))
 import Data.List (isInfixOf)
 import Graph.Parser (parseGraphFile)
-import Graph.Types (Graph, NodeId, neighbors)
-import Pregel.Engine (mkRunConfig, runPregel)
-import Pregel.Types (PregelRun (..), RunConfig)
-import SequentialEngine (runSequential)
+import Graph.Types (Graph, NodeId, neighbors, nodeCount)
+import Pregel.Engine (runGlobalPregel, runPathPregel)
+import Pregel.Types
+  ( PregelRun (..),
+    PathRunConfig (..),
+    RunConfig (..),
+    mkPathRunConfig,
+    mkRunConfig,
+  )
+import SequentialEngine (runGlobalSequential, runPathSequential)
 import System.Directory (doesFileExist)
 import Test.HUnit (Assertion, (@?=), assertBool, assertFailure)
 
@@ -40,15 +48,34 @@ labelPropagationExpected =
     (4, 0)
   ]
 
-assertEnginesAgree :: RunConfig -> AlgorithmSpec state msg log -> IO Assertion
-assertEnginesAgree cfg spec = do
-  let sequential = runSequential cfg spec
-  concurrent <- runPregel cfg spec
+assertEnginesAgreePath :: PathRunConfig -> PathAlgorithmSpec -> IO Assertion
+assertEnginesAgreePath prc pathSpec = do
+  let sequential = runPathSequential prc pathSpec
+  concurrent <- runPathPregel prc pathSpec
+  assertRunsAgree sequential concurrent
+
+assertEnginesAgreeGlobal ::
+  (Eq log, Show log) =>
+  RunConfig ->
+  GlobalAlgorithmSpec state msg log ->
+  IO Assertion
+assertEnginesAgreeGlobal cfg globalSpec = do
+  let sequential = runGlobalSequential cfg globalSpec
+  concurrent <- runGlobalPregel cfg globalSpec
+  assertRunsAgree sequential concurrent
+
+assertRunsAgree ::
+  (Eq log, Show log, Show e) =>
+  Either e (PregelRun log) ->
+  Either e (PregelRun log) ->
+  IO Assertion
+assertRunsAgree sequential concurrent =
   case (sequential, concurrent) of
     (Right seqRun, Right concRun) -> do
       prResult seqRun @?= prResult concRun
       prSupersteps seqRun @?= prSupersteps concRun
-      pure (prMaxStepsReached seqRun @?= prMaxStepsReached concRun)
+      prMaxStepsReached seqRun @?= prMaxStepsReached concRun
+      pure (prLogs seqRun @?= prLogs concRun)
     (Left err, _) ->
       assertFailure ("sequential engine failed: " ++ show err)
     (_, Left err) ->
@@ -63,8 +90,29 @@ assertEnginesAgreeSome ::
   IO Assertion
 assertEnginesAgreeSome graph source target threads someSpec =
   case someSpec of
-    SomeAlgorithmSpec spec ->
-      assertEnginesAgree (mkRunConfig graph source target threads spec) spec
+    SomePathAlgorithmSpec pathSpec ->
+      case target of
+        Nothing ->
+          assertFailure "path algorithm requires target for engine agreement test"
+        Just targetNode ->
+          assertEnginesAgreePath
+            ( mkPathRunConfig
+                graph
+                source
+                targetNode
+                threads
+                (psMaxSupersteps pathSpec (nodeCount graph))
+            )
+            pathSpec
+    SomeGlobalAlgorithmSpec globalSpec ->
+      assertEnginesAgreeGlobal
+        ( mkRunConfig
+            graph
+            source
+            threads
+            (globalMaxSupersteps globalSpec (nodeCount graph))
+        )
+        globalSpec
 
 assertRankingsApprox :: Double -> [(NodeId, Double)] -> Result -> Assertion
 assertRankingsApprox epsilon expected result =

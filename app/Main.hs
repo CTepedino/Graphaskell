@@ -1,7 +1,13 @@
 module Main where
 
+import Algorithm.Error (AlgorithmError (..))
 import Algorithm.Log (DescribeLogEntry (..))
-import Algorithm.Spec (SomeAlgorithmSpec (..), resolveAlgorithm, validatePathTarget)
+import Algorithm.Spec
+  ( SomeAlgorithmSpec (..),
+    resolveAlgorithm,
+    validatePathTarget,
+  )
+import Algorithm.Types (GlobalAlgorithmSpec (..), PathAlgorithmSpec (..))
 import AppError (AppError (..), displayAppError)
 import Cli.Options (Options (..), parseOptions)
 import Control.Monad.Except (ExceptT (..), runExceptT)
@@ -12,10 +18,10 @@ import Graph.Parser
     loadGraphFile,
     validateRunNodes,
   )
-import Graph.Types (Graph)
+import Graph.Types (Graph, nodeCount)
 import Output.Trace (describeRun)
-import Pregel.Engine (mkRunConfig, runPregel)
-import Pregel.Types (PregelRun (..))
+import Pregel.Engine (runGlobalPregel, runPathPregel)
+import Pregel.Types (PregelRun (..), mkPathRunConfig, mkRunConfig)
 import System.Exit (die)
 
 main :: IO ()
@@ -36,17 +42,35 @@ execute opts = runExceptT $ do
   graph <-
     exceptTWith AppLoad =<< liftIO (loadGraphFile (optGraphPath opts))
   except (first AppParse (validateRunNodes graph (optSource opts) (optTarget opts)))
-  SomeAlgorithmSpec spec <-
-    except (first AppAlgorithm (resolveAlgorithm graph (optAlgorithm opts)))
-  let cfg =
-        mkRunConfig
-          graph
-          (optSource opts)
-          (optTarget opts)
-          (optThreads opts)
-          spec
-  pregelRun <- exceptTWith AppPregel =<< liftIO (runPregel cfg spec)
-  pure (buildOutput opts graph pregelRun)
+  case resolveAlgorithm graph (optAlgorithm opts) of
+    Left err ->
+      except (Left (AppAlgorithm err))
+    Right (SomePathAlgorithmSpec pathSpec) -> do
+      target <-
+        except
+          ( maybe
+              (Left (AppAlgorithm MissingPathTarget))
+              Right
+              (optTarget opts)
+          )
+      let prc =
+            mkPathRunConfig
+              graph
+              (optSource opts)
+              target
+              (optThreads opts)
+              (psMaxSupersteps pathSpec (nodeCount graph))
+      pregelRun <- exceptTWith AppPregel =<< liftIO (runPathPregel prc pathSpec)
+      pure (buildOutput opts graph pregelRun)
+    Right (SomeGlobalAlgorithmSpec globalSpec) -> do
+      let cfg =
+            mkRunConfig
+              graph
+              (optSource opts)
+              (optThreads opts)
+              (globalMaxSupersteps globalSpec (nodeCount graph))
+      pregelRun <- exceptTWith AppPregel =<< liftIO (runGlobalPregel cfg globalSpec)
+      pure (buildOutput opts graph pregelRun)
 
 except :: Either AppError a -> ExceptT AppError IO a
 except = ExceptT . pure
@@ -78,8 +102,4 @@ configBanner opts =
       ++ show (optThreads opts)
       ++ " / "
       ++ show (optMaxCapabilities opts)
-      ++ " capabilities",
-    "  Verbose:    "
-      ++ if optVerbose opts then "yes" else "no",
-    ""
-  ]
+    ]
