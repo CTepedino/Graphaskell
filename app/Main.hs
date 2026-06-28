@@ -4,7 +4,6 @@ import Output.Log (DescribeLogEntry (..))
 import Algorithm.Spec
   ( SomeAlgorithmSpec (..),
     resolveAlgorithm,
-    resolveRunSource,
     validatePathSource,
     validatePathTarget,
   )
@@ -56,11 +55,10 @@ execute opts = runExceptT $ do
     Left err ->
       except (Left (AppAlgorithm err))
     Right (SomeAlgorithmSpec spec) -> do
-      let source = resolveRunSource (optAlgorithm opts) (optSource opts)
-          cfg =
+      let cfg =
             mkRunConfig
               graph
-              source
+              (optSource opts)
               (optTarget opts)
               (optThreads opts)
               (specMaxSupersteps spec (nodeCount graph))

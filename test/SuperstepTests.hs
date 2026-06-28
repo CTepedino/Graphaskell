@@ -28,7 +28,7 @@ superstepTests =
             cfg =
               RunConfig
                 { rcGraph = graph,
-                  rcSource = NodeId 0,
+                  rcSource = Just (NodeId 0),
                   rcTarget = Just (NodeId 2),
                   rcThreads = 1,
                   rcMaxSteps = 100,
@@ -57,7 +57,7 @@ superstepTests =
             cfg =
               RunConfig
                 { rcGraph = graph,
-                  rcSource = NodeId 0,
+                  rcSource = Just (NodeId 0),
                   rcTarget = Just (NodeId 1),
                   rcThreads = 1,
                   rcMaxSteps = 100,

@@ -2,7 +2,6 @@ module Algorithm.Spec
   ( SomeAlgorithmSpec (..),
     requirePathTarget,
     resolveAlgorithm,
-    resolveRunSource,
     validatePathSource,
     validatePathTarget,
   )
@@ -39,14 +38,6 @@ validatePathTarget algo target
       requirePathTarget target >> Right ()
   | otherwise =
       Right ()
-
-resolveRunSource :: Algorithm -> Maybe NodeId -> NodeId
-resolveRunSource algo source =
-  case source of
-    Just nodeId ->
-      nodeId
-    Nothing ->
-      NodeId 0
 
 resolveAlgorithm :: ValidGraph -> Algorithm -> Either AlgorithmError SomeAlgorithmSpec
 resolveAlgorithm _ BFS = Right (SomeAlgorithmSpec bfsSpec)

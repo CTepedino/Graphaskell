@@ -6,6 +6,7 @@ where
 import Algorithm.Log (MessageLog)
 import Algorithm.Types (AlgorithmSpec (..))
 import Control.Concurrent.STM (atomically)
+import Graph.Types (NodeId)
 import Graph.VertexContext (VertexContexts, buildVertexContexts)
 import Pregel.Env
   ( PregelEnv,
@@ -15,12 +16,12 @@ import Pregel.Env
     initEnv,
   )
 import Pregel.Error (PregelError (..))
+import Pregel.Loop (finalizeRun, loopRunner)
 import Pregel.Pool (runPool)
 import Pregel.Superstep
   ( SuperstepResult (..),
     initialVertexStates,
     mergeSuperstepOutcomes,
-    mkSuperstepLog,
     processVertex,
   )
 import Pregel.Types
@@ -41,93 +42,43 @@ runPregel cfg spec = do
       pure (Left err)
     Right () -> do
       runResult <-
-        loopConcurrent cfg spec contexts 0 initialStates env
-      pure (runResult >>= buildRun cfg spec)
-  where
-    buildRun cfg' spec' (finalStates, logs, steps, maxStepsReached) =
-      case specExtractResult spec' finalStates cfg' of
-        Left algoErr ->
-          Left (ResultExtraction algoErr)
-        Right result ->
-          Right
-            PregelRun
-              { prSupersteps = steps,
-                prLogs = logs,
-                prResult = result,
-                prMaxStepsReached = maxStepsReached
-              }
+        loopRunner
+          cfg
+          (activeVerticesSTM env)
+          (runConcurrentSuperstep cfg spec contexts env)
+          (deliverAll env)
+          0
+          initialStates
+      pure (runResult >>= finalizeRun cfg spec)
 
-loopConcurrent ::
+runConcurrentSuperstep ::
   MessageLog msg log =>
   RunConfig ->
   AlgorithmSpec state msg log ->
   VertexContexts ->
+  PregelEnv msg ->
   Int ->
   VertexStates state ->
-  PregelEnv msg ->
-  IO (Either PregelError (VertexStates state, [SuperstepLog log], Int, Bool))
-loopConcurrent cfg spec contexts step states env
-  | step >= rcMaxSteps cfg =
-      pure (Right (states, [], step, True))
-  | otherwise = do
-      actives <- activeVerticesSTM env
-      if null actives
-        then pure (Right (states, [], step, False))
-        else do
-          let workers = min (rcThreads cfg) (length actives)
-              tracing = rcTrace cfg
-          workerResults <-
-            runPool
-              workers
-              [ do
-                  fetchResult <- atomically (flushVertexQueue nodeId env)
-                  case fetchResult of
-                    Left err ->
-                      pure (Left err)
-                    Right messages ->
-                      pure (processVertex tracing spec contexts states nodeId messages)
-              | nodeId <- actives
-              ]
-          case sequence workerResults of
+  [NodeId] ->
+  IO (Either PregelError (SuperstepResult state msg log))
+runConcurrentSuperstep cfg spec contexts env _step states actives = do
+  let workers = min (rcThreads cfg) (length actives)
+      tracing = rcTrace cfg
+  workerResults <-
+    runPool
+      workers
+      [ do
+          fetchResult <- atomically (flushVertexQueue nodeId env)
+          case fetchResult of
             Left err ->
               pure (Left err)
-            Right outcomes -> do
-              let superstepResult = mergeSuperstepOutcomes states outcomes
-                  logEntry =
-                    mkSuperstepLog
-                      step
-                      actives
-                      (ssOutgoing superstepResult)
-                      (ssEntries superstepResult)
-              if null (ssOutgoing superstepResult)
-                then
-                  pure
-                    ( Right
-                        ( ssNewStates superstepResult,
-                          [logEntry],
-                          step + 1,
-                          False
-                        )
-                    )
-                else do
-                  deliverResult <-
-                    deliverAll env (ssOutgoing superstepResult)
-                  case deliverResult of
-                    Left err ->
-                      pure (Left err)
-                    Right () -> do
-                      loopResult <-
-                        loopConcurrent
-                          cfg
-                          spec
-                          contexts
-                          (step + 1)
-                          (ssNewStates superstepResult)
-                          env
-                      pure
-                        ( fmap
-                            ( \(finalStates, restLogs, finalStep, maxStepsReached) ->
-                                (finalStates, logEntry : restLogs, finalStep, maxStepsReached)
-                            )
-                            loopResult
-                        )
+            Right messages ->
+              pure (processVertex tracing spec contexts states nodeId messages)
+      | nodeId <- actives
+      ]
+  pure $
+    case sequence workerResults of
+      Left err ->
+        Left err
+      Right outcomes ->
+        Right (mergeSuperstepOutcomes states outcomes)

@@ -7,6 +7,7 @@ module TestSupport
     enginesAgree,
     examplesGraphPaths,
     labelPropagationExpected,
+    nodeLabelsMatch,
     pageRankExpected,
     pathSourceTarget,
     rankingsApprox,
@@ -116,7 +117,7 @@ assertRunsAgree sequential concurrent =
 
 assertEnginesAgreeSome ::
   ValidGraph ->
-  NodeId ->
+  Maybe NodeId ->
   Maybe NodeId ->
   Int ->
   SomeAlgorithmSpec ->
@@ -157,6 +158,14 @@ assertRankingsApprox epsilon expected result =
   if rankingsApprox epsilon expected result
     then pure ()
     else assertFailure ("rankings differ from expected: " ++ show result)
+
+nodeLabelsMatch :: [(NodeId, NodeId)] -> Result -> Bool
+nodeLabelsMatch expected result =
+  case result of
+    NodeLabels actual ->
+      expected == actual
+    _ ->
+      False
 
 assertValidBfsPath :: ValidGraph -> NodeId -> NodeId -> Distance -> Result -> Assertion
 assertValidBfsPath graph source target expectedDist result =

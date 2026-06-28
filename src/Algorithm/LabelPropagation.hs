@@ -1,5 +1,6 @@
 module Algorithm.LabelPropagation
   ( labelPropagationSpec,
+    labelPropagationStable,
   )
 where
 
@@ -12,13 +13,29 @@ import Algorithm.Messages (LabelMsg (..))
 import Algorithm.State (LabelState (..))
 import Algorithm.Types (AlgorithmSpec, LabelLog, mkLabelSpec)
 import qualified Data.Map.Strict as Map
-import Graph.Types (NodeId)
+import Graph.Types (NodeId, ValidGraph, graphNodes, neighbors)
 import Graph.VertexContext (VertexContext)
 import Pregel.Types
 
 labelPropagationSpec :: AlgorithmSpec LabelState LabelMsg LabelLog
 labelPropagationSpec =
   mkLabelSpec vertexUpdate extractLabelResult
+
+labelPropagationStable :: ValidGraph -> [(NodeId, NodeId)] -> Bool
+labelPropagationStable graph pairs =
+  let states = Map.fromList [ (nodeId, LabelState label) | (nodeId, label) <- pairs ]
+      isStable nodeId =
+        case lpaUpdate nodeId (neighborLabelMessages graph nodeId states) (states Map.! nodeId) of
+          Nothing ->
+            True
+          Just _ ->
+            False
+   in all isStable (graphNodes graph)
+  where
+    neighborLabelMessages graph' nodeId states' =
+      [ LabelMsg (lsLabel (states' Map.! to))
+        | (to, _) <- neighbors graph' nodeId
+      ]
 
 vertexUpdate ::
   VertexContext ->

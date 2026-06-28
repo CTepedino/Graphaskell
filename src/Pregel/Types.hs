@@ -31,7 +31,7 @@ data PregelRun log = PregelRun
 
 data RunConfig = RunConfig
   { rcGraph :: ValidGraph,
-    rcSource :: NodeId,
+    rcSource :: Maybe NodeId,
     rcTarget :: Maybe NodeId,
     rcThreads :: Int,
     rcMaxSteps :: Int,
@@ -41,7 +41,7 @@ data RunConfig = RunConfig
 
 mkRunConfig ::
   ValidGraph ->
-  NodeId ->
+  Maybe NodeId ->
   Maybe NodeId ->
   Int ->
   Int ->

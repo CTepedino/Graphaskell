@@ -52,10 +52,12 @@ validateWeightedGraph graph
 
 extractPathResult :: Map NodeId PathState -> RunConfig -> Either AlgorithmError Result
 extractPathResult states cfg =
-  case rcTarget cfg of
-    Nothing ->
+  case (rcTarget cfg, rcSource cfg) of
+    (Nothing, _) ->
       Left MissingPathTarget
-    Just target ->
+    (_, Nothing) ->
+      Left MissingPathSource
+    (Just target, Just source) ->
       case Map.lookup target states of
         Nothing ->
           Left (TargetNodeMissing target)
@@ -63,7 +65,7 @@ extractPathResult states cfg =
           case psDistance vertexState of
             Nothing -> Right NoPath
             Just dist ->
-              let path = reconstructPath states target (rcSource cfg)
+              let path = reconstructPath states target source
                in if null path
                     then Right NoPath
                     else Right (PathFound path dist)
@@ -222,18 +224,24 @@ labelVertexUpdate update vtx state messages =
     emitLabelMessages
 
 pathInitState :: NodeId -> RunConfig -> PathState
-pathInitState nodeId cfg
-  | nodeId == rcSource cfg =
-      emptyPathState {psDistance = Just zeroDistance}
-  | otherwise =
+pathInitState nodeId cfg =
+  case rcSource cfg of
+    Just source
+      | nodeId == source ->
+          emptyPathState {psDistance = Just zeroDistance}
+    _ ->
       emptyPathState
 
 pathBootstrap :: (Maybe Weight -> Bool) -> RunConfig -> [(NodeId, DistanceMsg)]
 pathBootstrap acceptWeight cfg =
-  [ (to, DistanceMsg (rcSource cfg) zeroDistance)
-    | (to, weight) <- neighbors (rcGraph cfg) (rcSource cfg),
-      acceptWeight weight
-  ]
+  case rcSource cfg of
+    Nothing ->
+      []
+    Just source ->
+      [ (to, DistanceMsg source zeroDistance)
+        | (to, weight) <- neighbors (rcGraph cfg) source,
+          acceptWeight weight
+      ]
 
 atLeastOneSuperstep :: Int -> Int
 atLeastOneSuperstep n = max 1 n

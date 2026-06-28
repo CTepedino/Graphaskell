@@ -3,6 +3,7 @@ module PropertyTests (propertyTests) where
 import Algorithm.BFS (bfsSpec)
 import Algorithm.BellmanFord (bellmanFordSpec)
 import Algorithm.Common (reconstructPath, tryImproveDistance, tryRelabel)
+import Algorithm.LabelPropagation (labelPropagationSpec, labelPropagationStable)
 import Algorithm.PageRank (pageRankSpec)
 import Algorithm.Result (Result (..))
 import Algorithm.Spec (SomeAlgorithmSpec (..))
@@ -53,6 +54,8 @@ import TestSupport
     rankingsApprox,
     shortestHops,
     shortestWeightedDistance,
+    labelPropagationExpected,
+    nodeLabelsMatch,
     validPath,
   )
 
@@ -68,6 +71,10 @@ propertyTests =
         check prop_bellmanFordOptimalPath,
       "prop: PageRank converges to expected rankings on fixture graph" ~:
         check prop_pageRankConvergesToExpected,
+      "prop: label propagation converges to expected labels on fixture graph" ~:
+        check prop_labelPropagationConvergesToExpected,
+      "prop: label propagation reaches a stable labeling on connected graphs" ~:
+        check prop_labelPropagationStableOnConnected,
       "prop: sequential and concurrent engines agree on all fixture algorithms" ~:
         check prop_enginesAgreeAll,
       "prop: sequential and concurrent engines agree on generated BFS graphs" ~:
@@ -105,7 +112,7 @@ prop_sequentialDeterministic =
             let cfg =
                   mkRunConfig
                     graph
-                    (NodeId 0)
+                    Nothing
                     Nothing
                     1
                     (specMaxSupersteps spec (nodeCount graph))
@@ -128,18 +135,18 @@ prop_sequentialDeterministicAll =
 data AlgorithmCase = AlgorithmCase
   { acAlgorithm :: Algorithm,
     acGraphText :: String,
-    acSource :: NodeId,
+    acSource :: Maybe NodeId,
     acTarget :: Maybe NodeId,
     acThreads :: Int
   }
 
 algorithmCases :: [AlgorithmCase]
 algorithmCases =
-  [ AlgorithmCase BFS simpleGraphText (NodeId 0) (Just (NodeId 4)) 4,
-    AlgorithmCase BellmanFord weightedGraphText (NodeId 0) (Just (NodeId 3)) 1,
-    AlgorithmCase ConnectedComponents disconnectedGraphText (NodeId 0) Nothing 2,
-    AlgorithmCase PageRank pageRankGraphText (NodeId 0) Nothing 2,
-    AlgorithmCase LabelPropagation simpleGraphText (NodeId 0) Nothing 2
+  [ AlgorithmCase BFS simpleGraphText (Just (NodeId 0)) (Just (NodeId 4)) 4,
+    AlgorithmCase BellmanFord weightedGraphText (Just (NodeId 0)) (Just (NodeId 3)) 1,
+    AlgorithmCase ConnectedComponents disconnectedGraphText Nothing Nothing 2,
+    AlgorithmCase PageRank pageRankGraphText Nothing Nothing 2,
+    AlgorithmCase LabelPropagation simpleGraphText Nothing Nothing 2
   ]
 
 deterministicCase :: AlgorithmCase -> Bool
@@ -166,8 +173,17 @@ deterministicCase AlgorithmCase {acAlgorithm, acGraphText, acSource, acTarget, a
     _ ->
       False
 
-genReachableGraph :: Gen (ValidGraph, NodeId, NodeId)
-genReachableGraph = do
+retryWhileNothing :: Gen (Maybe a) -> Gen a
+retryWhileNothing gen = do
+  mx <- gen
+  case mx of
+    Just value ->
+      pure value
+    Nothing ->
+      retryWhileNothing gen
+
+genReachableGraphCandidate :: Gen (Maybe (ValidGraph, NodeId, NodeId))
+genReachableGraphCandidate = do
   nodeTotal <- choose (2, 5)
   target <- choose (1, nodeTotal - 1)
   extraCount <- choose (0, nodeTotal * 2)
@@ -179,12 +195,19 @@ genReachableGraph = do
   let spine = zip [0 .. nodeTotal - 2] [1 .. nodeTotal - 1]
       pairs = nub (spine ++ [(from, to) | (from, to) <- extras, from /= to])
       edges = [Edge (NodeId from) (NodeId to) Nothing | (from, to) <- pairs]
-  case buildGraph nodeTotal edges of
-    Right graph -> pure (graph, NodeId 0, NodeId target)
-    Left err -> error ("genReachableGraph produced invalid graph: " ++ show err)
+  pure $
+    case buildGraph nodeTotal edges of
+      Right graph ->
+        Just (graph, NodeId 0, NodeId target)
+      Left _ ->
+        Nothing
 
-genWeightedReachableGraph :: Gen (ValidGraph, NodeId, NodeId)
-genWeightedReachableGraph = do
+genReachableGraph :: Gen (ValidGraph, NodeId, NodeId)
+genReachableGraph =
+  retryWhileNothing genReachableGraphCandidate
+
+genWeightedReachableGraphCandidate :: Gen (Maybe (ValidGraph, NodeId, NodeId))
+genWeightedReachableGraphCandidate = do
   nodeTotal <- choose (2, 5)
   target <- choose (1, nodeTotal - 1)
   extraCount <- choose (0, nodeTotal * 2)
@@ -211,9 +234,16 @@ genWeightedReachableGraph = do
         [ Edge (NodeId from) (NodeId to) (Just (Weight weight))
           | (from, to, weight) <- pairs
         ]
-  case buildGraph nodeTotal edges of
-    Right graph -> pure (graph, NodeId 0, NodeId target)
-    Left err -> error ("genWeightedReachableGraph produced invalid graph: " ++ show err)
+  pure $
+    case buildGraph nodeTotal edges of
+      Right graph ->
+        Just (graph, NodeId 0, NodeId target)
+      Left _ ->
+        Nothing
+
+genWeightedReachableGraph :: Gen (ValidGraph, NodeId, NodeId)
+genWeightedReachableGraph =
+  retryWhileNothing genWeightedReachableGraphCandidate
 
 runBfsSequential :: ValidGraph -> NodeId -> NodeId -> Maybe Result
 runBfsSequential graph source target =
@@ -241,13 +271,32 @@ runPageRankSequential graph =
     runPregelSequential
       ( mkRunConfig
           graph
-          (NodeId 0)
+          Nothing
           Nothing
           1
           (specMaxSupersteps pageRankSpec (nodeCount graph))
           False
       )
       pageRankSpec
+  of
+    Right run ->
+      Just (prResult run)
+    Left _ ->
+      Nothing
+
+runLabelPropagationSequential :: ValidGraph -> Maybe Result
+runLabelPropagationSequential graph =
+  case
+    runPregelSequential
+      ( mkRunConfig
+          graph
+          Nothing
+          Nothing
+          1
+          (specMaxSupersteps labelPropagationSpec (nodeCount graph))
+          False
+      )
+      labelPropagationSpec
   of
     Right run ->
       Just (prResult run)
@@ -263,7 +312,7 @@ mkPathConfig ::
 mkPathConfig spec graph source target =
   mkRunConfig
     graph
-    source
+    (Just source)
     (Just target)
     1
     (max (specMaxSupersteps spec (nodeCount graph)) (nodeCount graph * nodeCount graph))
@@ -311,6 +360,28 @@ prop_pageRankConvergesToExpected =
             rankingsApprox 1e-6 pageRankExpected result
           _ ->
             False
+      _ ->
+        False
+
+prop_labelPropagationConvergesToExpected :: Property
+prop_labelPropagationConvergesToExpected =
+  property $
+    case parseFixtureEither simpleGraphText of
+      Right graph ->
+        case runLabelPropagationSequential graph of
+          Just result ->
+            nodeLabelsMatch labelPropagationExpected result
+          _ ->
+            False
+      _ ->
+        False
+
+prop_labelPropagationStableOnConnected :: Property
+prop_labelPropagationStableOnConnected =
+  forAll genReachableGraph $ \(graph, _, _) ->
+    case runLabelPropagationSequential graph of
+      Just (NodeLabels pairs) ->
+        labelPropagationStable graph pairs
       _ ->
         False
 

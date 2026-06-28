@@ -94,7 +94,7 @@ samplePathCfg :: ValidGraph -> NodeId -> RunConfig
 samplePathCfg graph target =
   RunConfig
     { rcGraph = graph,
-      rcSource = NodeId 0,
+      rcSource = Just (NodeId 0),
       rcTarget = Just target,
       rcThreads = 1,
       rcMaxSteps = 100,

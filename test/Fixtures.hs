@@ -131,7 +131,7 @@ mkRunConfigFor ::
 mkRunConfigFor spec graph source target threads =
   mkRunConfig
     graph
-    source
+    (Just source)
     target
     threads
     (specMaxSupersteps spec (nodeCount graph))

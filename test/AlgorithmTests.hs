@@ -87,21 +87,21 @@ algorithmTests =
       "sequential and concurrent engines agree on BFS" ~: do
         graph <- requireFixture (parseFixture simpleGraphText)
         someSpec <- requireFixture (resolveFixture BFS graph)
-        assertEnginesAgreeSome graph (NodeId 0) (Just (NodeId 4)) 4 someSpec,
+        assertEnginesAgreeSome graph (Just (NodeId 0)) (Just (NodeId 4)) 4 someSpec,
       "sequential and concurrent engines agree on Bellman-Ford" ~: do
         graph <- requireFixture (parseFixture weightedGraphText)
         someSpec <- requireFixture (resolveFixture BellmanFord graph)
-        assertEnginesAgreeSome graph (NodeId 0) (Just (NodeId 3)) 1 someSpec,
+        assertEnginesAgreeSome graph (Just (NodeId 0)) (Just (NodeId 3)) 1 someSpec,
       "sequential and concurrent engines agree on connected components" ~: do
         graph <- requireFixture (parseFixture disconnectedGraphText)
         someSpec <- requireFixture (resolveFixture ConnectedComponents graph)
-        assertEnginesAgreeSome graph (NodeId 0) Nothing 2 someSpec,
+        assertEnginesAgreeSome graph Nothing Nothing 2 someSpec,
       "sequential and concurrent engines agree on PageRank" ~: do
         graph <- requireFixture (parseFixture pageRankGraphText)
         someSpec <- requireFixture (resolveFixture PageRank graph)
-        assertEnginesAgreeSome graph (NodeId 0) Nothing 2 someSpec,
+        assertEnginesAgreeSome graph Nothing Nothing 2 someSpec,
       "sequential and concurrent engines agree on label propagation" ~: do
         graph <- requireFixture (parseFixture simpleGraphText)
         someSpec <- requireFixture (resolveFixture LabelPropagation graph)
-        assertEnginesAgreeSome graph (NodeId 0) Nothing 2 someSpec
+        assertEnginesAgreeSome graph Nothing Nothing 2 someSpec
     ]

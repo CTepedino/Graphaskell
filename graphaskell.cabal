@@ -47,6 +47,7 @@ library
         Pregel.Engine,
         Pregel.Env,
         Pregel.Error,
+        Pregel.Loop,
         Pregel.Pool,
         Pregel.Superstep,
         Pregel.Types
@@ -86,6 +87,8 @@ test-suite graphaskell-test
         directory,
         HUnit,
         QuickCheck,
-        graphaskell
+        graphaskell,
+        mtl,
+        transformers
     default-language: GHC2021
     hs-source-dirs:   test
