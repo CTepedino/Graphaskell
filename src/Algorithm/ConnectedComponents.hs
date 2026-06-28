@@ -1,5 +1,5 @@
 module Algorithm.ConnectedComponents
-  ( connectedComponentsGlobalSpec,
+  ( connectedComponentsSpec,
   )
 where
 
@@ -12,14 +12,14 @@ import Algorithm.Common
   )
 import Algorithm.Messages (LabelMsg)
 import Algorithm.State (LabelState (..))
-import Algorithm.Types (GlobalAlgorithmSpec, LabelLog, mkLabelGlobalSpec)
+import Algorithm.Types (AlgorithmSpec, LabelLog, mkLabelSpec)
 import Graph.Types (NodeId)
 import Graph.VertexContext (VertexContext)
 import Pregel.Types
 
-connectedComponentsGlobalSpec :: GlobalAlgorithmSpec LabelState LabelMsg LabelLog
-connectedComponentsGlobalSpec =
-  mkLabelGlobalSpec vertexUpdate extractComponentResult
+connectedComponentsSpec :: AlgorithmSpec LabelState LabelMsg LabelLog
+connectedComponentsSpec =
+  mkLabelSpec vertexUpdate extractComponentResult
 
 vertexUpdate ::
   VertexContext ->

@@ -1,5 +1,5 @@
 module Algorithm.BFS
-  ( bfsPathSpec,
+  ( bfsSpec,
   )
 where
 
@@ -14,21 +14,23 @@ import Algorithm.Common
     tryImproveDistance,
   )
 import Algorithm.Messages (DistanceMsg)
+import Algorithm.Observability (pathObserver)
 import Algorithm.State (PathState, emptyPathState)
-import Algorithm.Types (PathAlgorithmSpec (..))
+import Algorithm.Types (AlgorithmSpec (..), PathLog)
 import Graph.Types (NodeId)
 import Graph.VertexContext (VertexContext (..), outNeighbors)
 import Pregel.Types
 
-bfsPathSpec :: PathAlgorithmSpec
-bfsPathSpec =
-  PathAlgorithmSpec
-    { psInitState = pathInitState,
-      psDefaultState = emptyPathState,
-      psBootstrap = pathBootstrap (const True),
-      psVertexUpdate = vertexUpdate,
-      psExtractResult = extractPathResult,
-      psMaxSupersteps = atLeastOneSuperstep
+bfsSpec :: AlgorithmSpec PathState DistanceMsg PathLog
+bfsSpec =
+  AlgorithmSpec
+    { specInitState = pathInitState,
+      specDefaultState = emptyPathState,
+      specBootstrap = pathBootstrap (const True),
+      specVertexUpdate = vertexUpdate,
+      specExtractResult = extractPathResult,
+      specMaxSupersteps = atLeastOneSuperstep,
+      specObserveStep = pathObserver
     }
 
 vertexUpdate ::

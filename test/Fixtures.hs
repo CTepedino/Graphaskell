@@ -12,16 +12,15 @@ module Fixtures
   )
 where
 
-import Algorithm.Error (AlgorithmError (..))
 import Algorithm.Spec (SomeAlgorithmSpec (..), resolveAlgorithm)
-import Algorithm.Types (GlobalAlgorithmSpec (..), PathAlgorithmSpec (..))
+import Algorithm.Types (AlgorithmSpec (..))
 import Graph.ParseError (ParseError)
 import Graph.Parser (parseGraphFile)
 import Graph.Types (Algorithm (..), Graph, NodeId, nodeCount)
 import Pregel.Error (PregelError (..))
 import Output.Run (SomePregelRun (..))
-import Pregel.Types (PathRunConfig (..), RunConfig (..), mkPathRunConfig, mkRunConfig)
-import SequentialEngine (runGlobalSequential, runPathSequential)
+import Pregel.Types (RunConfig (..), mkRunConfig)
+import SequentialEngine (runPregelSequential)
 
 simpleGraphText :: String
 simpleGraphText =
@@ -103,51 +102,26 @@ runFixtureEither ::
 runFixtureEither algorithm source target text =
   let graph = parseFixture text
    in case resolveFixture algorithm graph of
-        SomePathAlgorithmSpec pathSpec ->
-          case target of
-            Nothing ->
-              Left (ResultExtraction MissingPathTarget)
-            Just targetNode ->
-              fmap
-                SomePregelRun
-                ( runPathSequential
-                    (mkPathRunConfigFor pathSpec graph source targetNode 1)
-                    pathSpec
-                )
-        SomeGlobalAlgorithmSpec globalSpec ->
+        SomeAlgorithmSpec spec ->
           fmap
             SomePregelRun
-            ( runGlobalSequential
-                (mkGlobalRunConfigFor globalSpec graph source 1)
-                globalSpec
+            ( runPregelSequential
+                ( mkRunConfigFor spec graph source target 1)
+                spec
             )
 
-mkPathRunConfigFor ::
-  PathAlgorithmSpec ->
+mkRunConfigFor ::
+  AlgorithmSpec state msg log ->
   Graph ->
   NodeId ->
-  NodeId ->
+  Maybe NodeId ->
   Int ->
-  PathRunConfig
-mkPathRunConfigFor pathSpec graph source target threads =
-  mkPathRunConfig
+  RunConfig
+mkRunConfigFor spec graph source target threads =
+  mkRunConfig
     graph
     source
     target
     threads
-    (psMaxSupersteps pathSpec (nodeCount graph))
-    False
-
-mkGlobalRunConfigFor ::
-  GlobalAlgorithmSpec state msg log ->
-  Graph ->
-  NodeId ->
-  Int ->
-  RunConfig
-mkGlobalRunConfigFor globalSpec graph source threads =
-  mkRunConfig
-    graph
-    source
-    threads
-    (globalMaxSupersteps globalSpec (nodeCount graph))
+    (specMaxSupersteps spec (nodeCount graph))
     False

@@ -1,7 +1,6 @@
 module TestSupport
   ( assertComponentsListed,
-    assertEnginesAgreeGlobal,
-    assertEnginesAgreePath,
+    assertEnginesAgree,
     assertEnginesAgreeSome,
     assertRankingsApprox,
     assertValidBfsPath,
@@ -16,19 +15,17 @@ where
 import Algorithm.Log (MessageLog)
 import Algorithm.Result (Result (..))
 import Algorithm.Spec (SomeAlgorithmSpec (..))
-import Algorithm.Types (GlobalAlgorithmSpec (..), PathAlgorithmSpec (..))
+import Algorithm.Types (AlgorithmSpec (..))
 import Data.List (isInfixOf)
 import Graph.Parser (parseGraphFile)
 import Graph.Types (Graph, NodeId, neighbors, nodeCount)
-import Pregel.Engine (runGlobalPregel, runPathPregel)
+import Pregel.Engine (runPregel)
 import Pregel.Types
   ( PregelRun (..),
-    PathRunConfig (..),
     RunConfig (..),
-    mkPathRunConfig,
     mkRunConfig,
   )
-import SequentialEngine (runGlobalSequential, runPathSequential)
+import SequentialEngine (runPregelSequential)
 import System.Directory (doesFileExist)
 import Test.HUnit (Assertion, (@?=), assertBool, assertFailure)
 
@@ -49,20 +46,14 @@ labelPropagationExpected =
     (4, 0)
   ]
 
-assertEnginesAgreePath :: PathRunConfig -> PathAlgorithmSpec -> IO Assertion
-assertEnginesAgreePath prc pathSpec = do
-  let sequential = runPathSequential prc pathSpec
-  concurrent <- runPathPregel prc pathSpec
-  assertRunsAgree sequential concurrent
-
-assertEnginesAgreeGlobal ::
+assertEnginesAgree ::
   (MessageLog msg log, Eq log, Show log) =>
   RunConfig ->
-  GlobalAlgorithmSpec state msg log ->
+  AlgorithmSpec state msg log ->
   IO Assertion
-assertEnginesAgreeGlobal cfg globalSpec = do
-  let sequential = runGlobalSequential cfg globalSpec
-  concurrent <- runGlobalPregel cfg globalSpec
+assertEnginesAgree cfg spec = do
+  let sequential = runPregelSequential cfg spec
+  concurrent <- runPregel cfg spec
   assertRunsAgree sequential concurrent
 
 assertRunsAgree ::
@@ -91,31 +82,17 @@ assertEnginesAgreeSome ::
   IO Assertion
 assertEnginesAgreeSome graph source target threads someSpec =
   case someSpec of
-    SomePathAlgorithmSpec pathSpec ->
-      case target of
-        Nothing ->
-          assertFailure "path algorithm requires target for engine agreement test"
-        Just targetNode ->
-          assertEnginesAgreePath
-            ( mkPathRunConfig
-                graph
-                source
-                targetNode
-                threads
-                (psMaxSupersteps pathSpec (nodeCount graph))
-                False
-            )
-            pathSpec
-    SomeGlobalAlgorithmSpec globalSpec ->
-      assertEnginesAgreeGlobal
+    SomeAlgorithmSpec spec ->
+      assertEnginesAgree
         ( mkRunConfig
             graph
             source
+            target
             threads
-            (globalMaxSupersteps globalSpec (nodeCount graph))
+            (specMaxSupersteps spec (nodeCount graph))
             False
         )
-        globalSpec
+        spec
 
 assertRankingsApprox :: Double -> [(NodeId, Double)] -> Result -> Assertion
 assertRankingsApprox epsilon expected result =

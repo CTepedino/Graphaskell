@@ -1,12 +1,12 @@
 module Algorithm.PageRank
-  ( pageRankGlobalSpec,
+  ( pageRankSpec,
   )
 where
 
 import Algorithm.Common (extractRankingsResult, runVertexUpdate)
 import Algorithm.Messages (RankMsg (..))
 import Algorithm.State (RankState (..))
-import Algorithm.Types (GlobalAlgorithmSpec, RankLog, mkRankGlobalSpec)
+import Algorithm.Types (AlgorithmSpec, RankLog, mkRankSpec)
 import Graph.Types
 import Graph.VertexContext (VertexContext (..), outNeighbors, outDegree)
 import Pregel.Types
@@ -17,9 +17,9 @@ damping = 0.85
 rankEpsilon :: Double
 rankEpsilon = 1e-9
 
-pageRankGlobalSpec :: GlobalAlgorithmSpec RankState RankMsg RankLog
-pageRankGlobalSpec =
-  mkRankGlobalSpec initState bootstrap vertexUpdate extractRankingsResult
+pageRankSpec :: AlgorithmSpec RankState RankMsg RankLog
+pageRankSpec =
+  mkRankSpec initState bootstrap vertexUpdate extractRankingsResult
 
 initState :: NodeId -> RunConfig -> RankState
 initState _nodeId cfg =

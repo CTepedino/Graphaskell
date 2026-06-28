@@ -1,10 +1,9 @@
 module SuperstepTests (superstepTests) where
 
-import Algorithm.BFS (bfsPathSpec)
+import Algorithm.BFS (bfsSpec)
 import Algorithm.Log (PathLogEntry (..))
 import Algorithm.Messages (DistanceMsg (..))
 import Algorithm.State (PathState (..), emptyPathState)
-import Algorithm.Types (pathRunSpec)
 import qualified Data.Map.Strict as Map
 import Graph.Types (Edge (..), buildGraph)
 import Graph.VertexContext (buildVertexContexts)
@@ -13,7 +12,7 @@ import Pregel.Superstep
     initialVertexStates,
     processActiveVertices,
   )
-import Pregel.Types (PathRunConfig (..), pathRunConfigToRunConfig)
+import Pregel.Types (RunConfig (..))
 import Test.HUnit
 
 superstepTests :: Test
@@ -26,22 +25,20 @@ superstepTests =
                 [ Edge 0 1 Nothing,
                   Edge 1 2 Nothing
                 ]
-            prc =
-              PathRunConfig
-                { prcGraph = graph,
-                  prcSource = 0,
-                  prcTarget = 2,
-                  prcThreads = 1,
-                  prcMaxSteps = 100,
-                  prcTrace = True
+            cfg =
+              RunConfig
+                { rcGraph = graph,
+                  rcSource = 0,
+                  rcTarget = Just 2,
+                  rcThreads = 1,
+                  rcMaxSteps = 100,
+                  rcTrace = True
                 }
-            spec = pathRunSpec bfsPathSpec prc
-            cfg = pathRunConfigToRunConfig prc
             contexts = buildVertexContexts graph
-            states = initialVertexStates spec cfg graph
+            states = initialVertexStates bfsSpec cfg graph
             messageFor 1 = [DistanceMsg 0 0]
             messageFor _ = []
-        case processActiveVertices True spec contexts states messageFor [1] of
+        case processActiveVertices True bfsSpec contexts states messageFor [1] of
           Right SuperstepResult {ssNewStates = newStates, ssOutgoing = outgoing, ssEntries = entries} -> do
             Map.lookup 1 newStates
               @?= Just (PathState (Just 1) (Just 0))
@@ -56,21 +53,19 @@ superstepTests =
                 2
                 [ Edge 0 1 Nothing
                 ]
-            prc =
-              PathRunConfig
-                { prcGraph = graph,
-                  prcSource = 0,
-                  prcTarget = 1,
-                  prcThreads = 1,
-                  prcMaxSteps = 100,
-                  prcTrace = False
+            cfg =
+              RunConfig
+                { rcGraph = graph,
+                  rcSource = 0,
+                  rcTarget = Just 1,
+                  rcThreads = 1,
+                  rcMaxSteps = 100,
+                  rcTrace = False
                 }
-            spec = pathRunSpec bfsPathSpec prc
-            cfg = pathRunConfigToRunConfig prc
             contexts = buildVertexContexts graph
-            states = initialVertexStates spec cfg graph
+            states = initialVertexStates bfsSpec cfg graph
             messageFor _ = []
-        case processActiveVertices False spec contexts states messageFor [1] of
+        case processActiveVertices False bfsSpec contexts states messageFor [1] of
           Right SuperstepResult {ssNewStates = newStates, ssOutgoing = outgoing, ssEntries = entries} -> do
             Map.lookup 1 newStates @?= Just emptyPathState
             outgoing @?= []

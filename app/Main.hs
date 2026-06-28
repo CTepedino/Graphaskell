@@ -3,11 +3,10 @@ module Main where
 import Output.Log (DescribeLogEntry (..))
 import Algorithm.Spec
   ( SomeAlgorithmSpec (..),
-    requirePathTarget,
-    resolveAlgorithm,
     validatePathTarget,
+    resolveAlgorithm,
   )
-import Algorithm.Types (GlobalAlgorithmSpec (..), PathAlgorithmSpec (..))
+import Algorithm.Types (AlgorithmSpec (..))
 import AppError (AppError (..), displayAppError)
 import Cli.Options (Options (..), parseOptions)
 import Control.Monad.Except (ExceptT (..), runExceptT)
@@ -20,8 +19,8 @@ import Graph.Parser
   )
 import Graph.Types (Graph, nodeCount)
 import Output.Trace (describeRun)
-import Pregel.Engine (runGlobalPregel, runPathPregel)
-import Pregel.Types (PregelRun (..), mkPathRunConfig, mkRunConfig)
+import Pregel.Engine (runPregel)
+import Pregel.Types (PregelRun (..), mkRunConfig)
 import System.Exit (die)
 
 main :: IO ()
@@ -45,27 +44,16 @@ execute opts = runExceptT $ do
   case resolveAlgorithm graph (optAlgorithm opts) of
     Left err ->
       except (Left (AppAlgorithm err))
-    Right (SomePathAlgorithmSpec pathSpec) -> do
-      target <- except (first AppAlgorithm (requirePathTarget (optTarget opts)))
-      let prc =
-            mkPathRunConfig
-              graph
-              (optSource opts)
-              target
-              (optThreads opts)
-              (psMaxSupersteps pathSpec (nodeCount graph))
-              (optVerbose opts)
-      pregelRun <- exceptTWith AppPregel =<< liftIO (runPathPregel prc pathSpec)
-      pure (buildOutput opts graph pregelRun)
-    Right (SomeGlobalAlgorithmSpec globalSpec) -> do
+    Right (SomeAlgorithmSpec spec) -> do
       let cfg =
             mkRunConfig
               graph
               (optSource opts)
+              (optTarget opts)
               (optThreads opts)
-              (globalMaxSupersteps globalSpec (nodeCount graph))
+              (specMaxSupersteps spec (nodeCount graph))
               (optVerbose opts)
-      pregelRun <- exceptTWith AppPregel =<< liftIO (runGlobalPregel cfg globalSpec)
+      pregelRun <- exceptTWith AppPregel =<< liftIO (runPregel cfg spec)
       pure (buildOutput opts graph pregelRun)
 
 except :: Either AppError a -> ExceptT AppError IO a

@@ -6,13 +6,13 @@ module Algorithm.Spec
   )
 where
 
-import Algorithm.BFS (bfsPathSpec)
-import Algorithm.BellmanFord (bellmanFordPathSpec)
+import Algorithm.BFS (bfsSpec)
+import Algorithm.BellmanFord (bellmanFordSpec)
 import Algorithm.Common (validateWeightedGraph)
-import Algorithm.ConnectedComponents (connectedComponentsGlobalSpec)
+import Algorithm.ConnectedComponents (connectedComponentsSpec)
 import Algorithm.Error (AlgorithmError (..))
-import Algorithm.LabelPropagation (labelPropagationGlobalSpec)
-import Algorithm.PageRank (pageRankGlobalSpec)
+import Algorithm.LabelPropagation (labelPropagationSpec)
+import Algorithm.PageRank (pageRankSpec)
 import Algorithm.Types (SomeAlgorithmSpec (..))
 import Graph.Types
 
@@ -25,12 +25,12 @@ validatePathTarget BellmanFord target = requirePathTarget target >> Right ()
 validatePathTarget _ _ = Right ()
 
 resolveAlgorithm :: Graph -> Algorithm -> Either AlgorithmError SomeAlgorithmSpec
-resolveAlgorithm _ BFS = Right (SomePathAlgorithmSpec bfsPathSpec)
+resolveAlgorithm _ BFS = Right (SomeAlgorithmSpec bfsSpec)
 resolveAlgorithm graph BellmanFord = do
   validateWeightedGraph graph
-  pure (SomePathAlgorithmSpec bellmanFordPathSpec)
-resolveAlgorithm _ PageRank = Right (SomeGlobalAlgorithmSpec pageRankGlobalSpec)
+  pure (SomeAlgorithmSpec bellmanFordSpec)
+resolveAlgorithm _ PageRank = Right (SomeAlgorithmSpec pageRankSpec)
 resolveAlgorithm _ ConnectedComponents =
-  Right (SomeGlobalAlgorithmSpec connectedComponentsGlobalSpec)
+  Right (SomeAlgorithmSpec connectedComponentsSpec)
 resolveAlgorithm _ LabelPropagation =
-  Right (SomeGlobalAlgorithmSpec labelPropagationGlobalSpec)
+  Right (SomeAlgorithmSpec labelPropagationSpec)

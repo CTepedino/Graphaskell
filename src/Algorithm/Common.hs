@@ -39,7 +39,7 @@ import qualified Data.Map.Strict as Map
 import Data.Ord (comparing)
 import Graph.Types
 import Graph.VertexContext (VertexContext, outNeighbors, vcNodeId)
-import Pregel.Types (PathRunConfig (..), RunConfig (..), VertexStepResult (..))
+import Pregel.Types (RunConfig (..), VertexStepResult (..))
 
 validateWeightedGraph :: Graph -> Either AlgorithmError ()
 validateWeightedGraph graph
@@ -50,19 +50,23 @@ validateWeightedGraph graph
   | otherwise =
       Left WeightedGraphRequired
 
-extractPathResult :: Map NodeId PathState -> PathRunConfig -> Either AlgorithmError Result
+extractPathResult :: Map NodeId PathState -> RunConfig -> Either AlgorithmError Result
 extractPathResult states cfg =
-  case Map.lookup (prcTarget cfg) states of
+  case rcTarget cfg of
     Nothing ->
-      Left (TargetNodeMissing (prcTarget cfg))
-    Just vertexState ->
-      case psDistance vertexState of
-        Nothing -> Right NoPath
-        Just dist ->
-          let path = reconstructPath states (prcTarget cfg) (prcSource cfg)
-           in if null path
-                then Right NoPath
-                else Right (PathFound path dist)
+      Left MissingPathTarget
+    Just target ->
+      case Map.lookup target states of
+        Nothing ->
+          Left (TargetNodeMissing target)
+        Just vertexState ->
+          case psDistance vertexState of
+            Nothing -> Right NoPath
+            Just dist ->
+              let path = reconstructPath states target (rcSource cfg)
+               in if null path
+                    then Right NoPath
+                    else Right (PathFound path dist)
 
 extractComponentResult :: Map NodeId LabelState -> RunConfig -> Either AlgorithmError Result
 extractComponentResult states _cfg =
@@ -217,17 +221,17 @@ labelVertexUpdate update vtx state messages =
     (update (vcNodeId vtx))
     emitLabelMessages
 
-pathInitState :: NodeId -> PathRunConfig -> PathState
+pathInitState :: NodeId -> RunConfig -> PathState
 pathInitState nodeId cfg
-  | nodeId == prcSource cfg =
+  | nodeId == rcSource cfg =
       emptyPathState {psDistance = Just 0}
   | otherwise =
       emptyPathState
 
-pathBootstrap :: (Maybe Int -> Bool) -> PathRunConfig -> [(NodeId, DistanceMsg)]
+pathBootstrap :: (Maybe Int -> Bool) -> RunConfig -> [(NodeId, DistanceMsg)]
 pathBootstrap acceptWeight cfg =
-  [ (to, DistanceMsg (prcSource cfg) 0)
-    | (to, weight) <- neighbors (prcGraph cfg) (prcSource cfg),
+  [ (to, DistanceMsg (rcSource cfg) 0)
+    | (to, weight) <- neighbors (rcGraph cfg) (rcSource cfg),
       acceptWeight weight
   ]
 

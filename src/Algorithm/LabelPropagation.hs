@@ -1,5 +1,5 @@
 module Algorithm.LabelPropagation
-  ( labelPropagationGlobalSpec,
+  ( labelPropagationSpec,
   )
 where
 
@@ -10,16 +10,16 @@ import Algorithm.Common
   )
 import Algorithm.Messages (LabelMsg (..))
 import Algorithm.State (LabelState (..))
-import Algorithm.Types (GlobalAlgorithmSpec, LabelLog, mkLabelGlobalSpec)
+import Algorithm.Types (AlgorithmSpec, LabelLog, mkLabelSpec)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import Graph.Types (NodeId)
 import Graph.VertexContext (VertexContext)
 import Pregel.Types
 
-labelPropagationGlobalSpec :: GlobalAlgorithmSpec LabelState LabelMsg LabelLog
-labelPropagationGlobalSpec =
-  mkLabelGlobalSpec vertexUpdate extractLabelResult
+labelPropagationSpec :: AlgorithmSpec LabelState LabelMsg LabelLog
+labelPropagationSpec =
+  mkLabelSpec vertexUpdate extractLabelResult
 
 vertexUpdate ::
   VertexContext ->

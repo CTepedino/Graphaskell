@@ -1,21 +1,12 @@
 module Pregel.Engine
-  ( runPathPregel,
-    runGlobalPregel,
+  ( runPregel,
   )
 where
 
-import Algorithm.Types
-  ( AlgorithmSpec (..),
-    GlobalAlgorithmSpec,
-    PathAlgorithmSpec,
-    PathLog,
-    globalRunSpec,
-    pathRunSpec,
-  )
+import Algorithm.Types (AlgorithmSpec (..))
 import Algorithm.Log (MessageLog)
 import Control.Concurrent.STM (atomically)
 import qualified Data.Map.Strict as Map
-import Graph.Types
 import Graph.VertexContext (VertexContexts, buildVertexContexts)
 import Pregel.Env
   ( PregelEnv,
@@ -34,27 +25,12 @@ import Pregel.Superstep
   )
 import Pregel.Types
 
-runPathPregel ::
-  PathRunConfig ->
-  PathAlgorithmSpec ->
-  IO (Either PregelError (PregelRun PathLog))
-runPathPregel prc pathSpec =
-  runConcurrent (pathRunConfigToRunConfig prc) (pathRunSpec pathSpec prc)
-
-runGlobalPregel ::
-  MessageLog msg log =>
-  RunConfig ->
-  GlobalAlgorithmSpec state msg log ->
-  IO (Either PregelError (PregelRun log))
-runGlobalPregel cfg globalSpec =
-  runConcurrent cfg (globalRunSpec globalSpec cfg)
-
-runConcurrent ::
+runPregel ::
   MessageLog msg log =>
   RunConfig ->
   AlgorithmSpec state msg log ->
   IO (Either PregelError (PregelRun log))
-runConcurrent cfg spec = do
+runPregel cfg spec = do
   let graph = rcGraph cfg
       contexts = buildVertexContexts graph
   env <- initEnv graph
@@ -66,10 +42,10 @@ runConcurrent cfg spec = do
     Right () -> do
       runResult <-
         loopConcurrent cfg spec contexts 0 initialStates env
-      pure (runResult >>= buildRun spec)
+      pure (runResult >>= buildRun cfg spec)
   where
-    buildRun spec' (finalStates, logs, steps, maxStepsReached) =
-      case specExtractResult spec' finalStates of
+    buildRun cfg' spec' (finalStates, logs, steps, maxStepsReached) =
+      case specExtractResult spec' finalStates cfg' of
         Left algoErr ->
           Left (ResultExtraction algoErr)
         Right result ->

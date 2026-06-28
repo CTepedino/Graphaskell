@@ -1,5 +1,5 @@
 module Algorithm.BellmanFord
-  ( bellmanFordPathSpec,
+  ( bellmanFordSpec,
   )
 where
 
@@ -13,8 +13,9 @@ import Algorithm.Common
     tryImproveDistance,
   )
 import Algorithm.Messages (DistanceMsg (..))
+import Algorithm.Observability (pathObserver)
 import Algorithm.State (PathState, emptyPathState)
-import Algorithm.Types (PathAlgorithmSpec (..))
+import Algorithm.Types (AlgorithmSpec (..), PathLog)
 import Data.Maybe (isJust, mapMaybe)
 import Graph.Types (NodeId)
 import Graph.VertexContext
@@ -24,15 +25,16 @@ import Graph.VertexContext
   )
 import Pregel.Types
 
-bellmanFordPathSpec :: PathAlgorithmSpec
-bellmanFordPathSpec =
-  PathAlgorithmSpec
-    { psInitState = pathInitState,
-      psDefaultState = emptyPathState,
-      psBootstrap = pathBootstrap isJust,
-      psVertexUpdate = vertexUpdate,
-      psExtractResult = extractPathResult,
-      psMaxSupersteps = atLeastOneSuperstep
+bellmanFordSpec :: AlgorithmSpec PathState DistanceMsg PathLog
+bellmanFordSpec =
+  AlgorithmSpec
+    { specInitState = pathInitState,
+      specDefaultState = emptyPathState,
+      specBootstrap = pathBootstrap isJust,
+      specVertexUpdate = vertexUpdate,
+      specExtractResult = extractPathResult,
+      specMaxSupersteps = atLeastOneSuperstep,
+      specObserveStep = pathObserver
     }
 
 vertexUpdate ::

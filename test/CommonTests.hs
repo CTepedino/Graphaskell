@@ -14,7 +14,7 @@ import Algorithm.Result (Result (..))
 import Algorithm.State (PathState (..), emptyPathState)
 import qualified Data.Map.Strict as Map
 import Graph.Types (Edge (..), Graph, NodeId, buildGraph)
-import Pregel.Types (PathRunConfig (..))
+import Pregel.Types (RunConfig (..))
 import Test.HUnit
 
 commonTests :: Test
@@ -81,13 +81,13 @@ sampleGraph =
       Edge 1 2 Nothing
     ]
 
-samplePathCfg :: Graph -> NodeId -> PathRunConfig
+samplePathCfg :: Graph -> NodeId -> RunConfig
 samplePathCfg graph target =
-  PathRunConfig
-    { prcGraph = graph,
-      prcSource = 0,
-      prcTarget = target,
-      prcThreads = 1,
-      prcMaxSteps = 100,
-      prcTrace = False
+  RunConfig
+    { rcGraph = graph,
+      rcSource = 0,
+      rcTarget = Just target,
+      rcThreads = 1,
+      rcMaxSteps = 100,
+      rcTrace = False
     }

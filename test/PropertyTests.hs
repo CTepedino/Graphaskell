@@ -1,9 +1,9 @@
 module PropertyTests (propertyTests) where
 
-import Algorithm.BFS (bfsPathSpec)
+import Algorithm.BFS (bfsSpec)
 import Algorithm.Result (Result (..))
 import Algorithm.Spec (SomeAlgorithmSpec (..))
-import Algorithm.Types (GlobalAlgorithmSpec (..), PathAlgorithmSpec (..))
+import Algorithm.Types (AlgorithmSpec (..))
 import Data.List (nub)
 import qualified Data.Set as Set
 import Fixtures
@@ -25,8 +25,8 @@ import Graph.Types
     neighbors,
     nodeCount,
   )
-import Pregel.Types (PregelRun (..), mkPathRunConfig, mkRunConfig)
-import SequentialEngine (runGlobalSequential, runPathSequential)
+import Pregel.Types (PregelRun (..), mkRunConfig)
+import SequentialEngine (runPregelSequential)
 import Test.HUnit (Test (..), (~:), assertFailure)
 import Test.QuickCheck
   ( Gen,
@@ -67,21 +67,20 @@ check prop = do
 prop_sequentialDeterministic :: Property
 prop_sequentialDeterministic =
   case resolveFixture ConnectedComponents (parseFixture simpleGraphText) of
-    SomeGlobalAlgorithmSpec globalSpec ->
+    SomeAlgorithmSpec spec ->
       property $
         let graph = parseFixture simpleGraphText
             cfg =
               mkRunConfig
                 graph
                 0
+                Nothing
                 1
-                (globalMaxSupersteps globalSpec (nodeCount graph))
+                (specMaxSupersteps spec (nodeCount graph))
                 False
-            first = requireRight (runGlobalSequential cfg globalSpec)
-            second = requireRight (runGlobalSequential cfg globalSpec)
+            first = requireRight (runPregelSequential cfg spec)
+            second = requireRight (runPregelSequential cfg spec)
          in prResult first === prResult second
-    _ ->
-      property False
 
 prop_sequentialDeterministicAll :: Property
 prop_sequentialDeterministicAll =
@@ -108,31 +107,17 @@ deterministicCase :: AlgorithmCase -> Bool
 deterministicCase AlgorithmCase {acAlgorithm, acGraphText, acSource, acTarget} =
   let graph = parseFixture acGraphText
    in case resolveFixture acAlgorithm graph of
-        SomePathAlgorithmSpec pathSpec ->
-          case acTarget of
-            Nothing -> False
-            Just target ->
-              let prc =
-                    mkPathRunConfig
-                      graph
-                      acSource
-                      target
-                      1
-                      (psMaxSupersteps pathSpec (nodeCount graph))
-                      False
-                  first = requireRight (runPathSequential prc pathSpec)
-                  second = requireRight (runPathSequential prc pathSpec)
-               in prResult first == prResult second
-        SomeGlobalAlgorithmSpec globalSpec ->
+        SomeAlgorithmSpec spec ->
           let cfg =
                 mkRunConfig
                   graph
                   acSource
+                  acTarget
                   1
-                  (globalMaxSupersteps globalSpec (nodeCount graph))
+                  (specMaxSupersteps spec (nodeCount graph))
                   False
-              first = requireRight (runGlobalSequential cfg globalSpec)
-              second = requireRight (runGlobalSequential cfg globalSpec)
+              first = requireRight (runPregelSequential cfg spec)
+              second = requireRight (runPregelSequential cfg spec)
            in prResult first == prResult second
 
 genReachableGraph :: Gen (Graph, NodeId, NodeId)
@@ -177,16 +162,16 @@ runBfsSequential :: Graph -> NodeId -> NodeId -> Result
 runBfsSequential graph source target =
   prResult
     ( requireRight
-        ( runPathSequential
-            ( mkPathRunConfig
+        ( runPregelSequential
+            ( mkRunConfig
                 graph
                 source
-                target
+                (Just target)
                 1
-                (psMaxSupersteps bfsPathSpec (nodeCount graph))
+                (specMaxSupersteps bfsSpec (nodeCount graph))
                 False
             )
-            bfsPathSpec
+            bfsSpec
         )
     )
 
@@ -235,9 +220,7 @@ prop_maxSuperstepsPositive =
      in all
           ( \someSpec ->
               case someSpec of
-                SomePathAlgorithmSpec pathSpec ->
-                  psMaxSupersteps pathSpec nodeTotal > 0
-                SomeGlobalAlgorithmSpec globalSpec ->
-                  globalMaxSupersteps globalSpec nodeTotal > 0
+                SomeAlgorithmSpec spec ->
+                  specMaxSupersteps spec nodeTotal > 0
           )
           specs
