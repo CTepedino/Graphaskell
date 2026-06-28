@@ -71,7 +71,7 @@ requireFixture (Left err) =
   assertFailure ("fixture failed: " ++ show err)
 
 assertEnginesAgree ::
-  (MessageLog msg log, Eq log, Show log) =>
+  (MessageLog msg log, Eq log, Show log, Eq state) =>
   RunConfig ->
   AlgorithmSpec state msg log ->
   IO Assertion
@@ -81,7 +81,7 @@ assertEnginesAgree cfg spec = do
   assertRunsAgree sequential concurrent
 
 enginesAgree ::
-  (MessageLog msg log, Eq log) =>
+  (MessageLog msg log, Eq log, Eq state) =>
   RunConfig ->
   AlgorithmSpec state msg log ->
   IO Bool

@@ -23,7 +23,7 @@ import Pregel.Types
 type SequentialM msg a = StateT (MessageQueues msg) (Either PregelError) a
 
 runPregelSequential ::
-  MessageLog msg log =>
+  (MessageLog msg log, Eq state) =>
   RunConfig ->
   AlgorithmSpec state msg log ->
   Either PregelError (PregelRun log)
@@ -49,7 +49,7 @@ runPregelSequential cfg spec = do
   runResult >>= finalizeRun cfg spec
 
 runSequentialSuperstep ::
-  MessageLog msg log =>
+  (MessageLog msg log, Eq state) =>
   RunConfig ->
   AlgorithmSpec state msg log ->
   VertexContexts ->

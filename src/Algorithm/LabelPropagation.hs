@@ -6,7 +6,7 @@ where
 
 import Algorithm.Common
   ( extractLabelResult,
-    labelVertexUpdate,
+    labelVertexUpdateAlwaysEmit,
     tryRelabel,
   )
 import Algorithm.Messages (LabelMsg (..))
@@ -43,7 +43,7 @@ vertexUpdate ::
   [LabelMsg] ->
   VertexStepResult LabelState LabelMsg
 vertexUpdate =
-  labelVertexUpdate lpaUpdate
+  labelVertexUpdateAlwaysEmit lpaUpdate
 
 lpaUpdate :: NodeId -> [LabelMsg] -> LabelState -> Maybe LabelState
 lpaUpdate nodeId messages state =

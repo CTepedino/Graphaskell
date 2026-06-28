@@ -40,7 +40,7 @@ loopRunner cfg getActives runSuperstep deliver step states = go step states
                           actives
                           (ssOutgoing result)
                           (ssEntries result)
-                  if null (ssOutgoing result)
+                  if not (ssStateChanged result)
                     then
                       pure
                         ( Right

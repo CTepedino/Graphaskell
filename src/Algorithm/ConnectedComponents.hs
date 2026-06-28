@@ -5,7 +5,7 @@ where
 
 import Algorithm.Common
   ( extractComponentResult,
-    labelVertexUpdate,
+    labelVertexUpdateAlwaysEmit,
     labelsFromMessages,
     minimumWithSelf,
     tryRelabel,
@@ -27,7 +27,7 @@ vertexUpdate ::
   [LabelMsg] ->
   VertexStepResult LabelState LabelMsg
 vertexUpdate =
-  labelVertexUpdate ccUpdate
+  labelVertexUpdateAlwaysEmit ccUpdate
 
 ccUpdate :: NodeId -> [LabelMsg] -> LabelState -> Maybe LabelState
 ccUpdate nodeId messages state =

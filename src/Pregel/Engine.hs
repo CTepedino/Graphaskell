@@ -27,7 +27,7 @@ import Pregel.Superstep
 import Pregel.Types
 
 runPregel ::
-  MessageLog msg log =>
+  (MessageLog msg log, Eq state) =>
   RunConfig ->
   AlgorithmSpec state msg log ->
   IO (Either PregelError (PregelRun log))
@@ -52,7 +52,7 @@ runPregel cfg spec = do
       pure (runResult >>= finalizeRun cfg spec)
 
 runConcurrentSuperstep ::
-  MessageLog msg log =>
+  (MessageLog msg log, Eq state) =>
   RunConfig ->
   AlgorithmSpec state msg log ->
   VertexContexts ->

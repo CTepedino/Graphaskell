@@ -23,7 +23,8 @@ import Pregel.Types
 data SuperstepResult state msg log = SuperstepResult
   { ssNewStates :: VertexStates state,
     ssOutgoing :: [(NodeId, msg)],
-    ssEntries :: [log]
+    ssEntries :: [log],
+    ssStateChanged :: Bool
   }
   deriving (Eq, Show)
 
@@ -80,7 +81,7 @@ initialVertexStates spec cfg graph =
     ]
 
 processVertex ::
-  MessageLog msg log =>
+  (MessageLog msg log, Eq state) =>
   Bool ->
   AlgorithmSpec state msg log ->
   VertexContexts ->
@@ -101,6 +102,7 @@ processVertex tracing spec contexts states nodeId messages =
        in Right (nodeId, result, logs)
 
 mergeSuperstepOutcomes ::
+  Eq state =>
   VertexStates state ->
   [(NodeId, VertexStepResult state msg, [log])] ->
   SuperstepResult state msg log
@@ -114,11 +116,21 @@ mergeSuperstepOutcomes states outcomes =
           ],
       ssOutgoing =
         concatMap (vsrOutgoing . (\(_, result, _) -> result)) outcomes,
-      ssEntries = concatMap (\(_, _, logs) -> logs) outcomes
+      ssEntries = concatMap (\(_, _, logs) -> logs) outcomes,
+      ssStateChanged =
+        any
+          ( \(nodeId, VertexStepResult newState _, _) ->
+              case Map.lookup nodeId states of
+                Just oldState ->
+                  newState /= oldState
+                Nothing ->
+                  True
+          )
+          outcomes
     }
 
 processActiveVertices ::
-  MessageLog msg log =>
+  (MessageLog msg log, Eq state) =>
   Bool ->
   AlgorithmSpec state msg log ->
   VertexContexts ->

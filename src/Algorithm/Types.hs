@@ -55,7 +55,7 @@ type RankLog = RankLogEntry RankMsg
 
 data SomeAlgorithmSpec where
   SomeAlgorithmSpec ::
-    (DescribeLogEntry log, MessageLog msg log, Eq log, Show log) =>
+    (DescribeLogEntry log, MessageLog msg log, Eq log, Show log, Eq state) =>
     AlgorithmSpec state msg log ->
     SomeAlgorithmSpec
 

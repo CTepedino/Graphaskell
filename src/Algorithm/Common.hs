@@ -7,6 +7,7 @@ module Algorithm.Common
     reconstructPath,
     runVertexUpdate,
     labelVertexUpdate,
+    labelVertexUpdateAlwaysEmit,
     bfsCandidates,
     tryImproveDistance,
     tryRelabel,
@@ -222,6 +223,20 @@ labelVertexUpdate update vtx state messages =
     messages
     (update (vcNodeId vtx))
     emitLabelMessages
+
+labelVertexUpdateAlwaysEmit ::
+  (NodeId -> [LabelMsg] -> LabelState -> Maybe LabelState) ->
+  VertexContext ->
+  LabelState ->
+  [LabelMsg] ->
+  VertexStepResult LabelState LabelMsg
+labelVertexUpdateAlwaysEmit update vtx state messages =
+  let nodeId = vcNodeId vtx
+   in case update nodeId messages state of
+        Nothing ->
+          VertexStepResult state (emitLabelMessages vtx state)
+        Just newState ->
+          VertexStepResult newState (emitLabelMessages vtx newState)
 
 pathInitState :: NodeId -> RunConfig -> PathState
 pathInitState nodeId cfg =
