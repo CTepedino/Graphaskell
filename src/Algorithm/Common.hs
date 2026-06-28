@@ -41,7 +41,7 @@ import Graph.Types
 import Graph.VertexContext (VertexContext, outNeighbors, vcNodeId)
 import Pregel.Types (RunConfig (..), VertexStepResult (..))
 
-validateWeightedGraph :: Graph -> Either AlgorithmError ()
+validateWeightedGraph :: ValidGraph -> Either AlgorithmError ()
 validateWeightedGraph graph
   | null (graphEdges graph) =
       Left WeightedGraphRequired

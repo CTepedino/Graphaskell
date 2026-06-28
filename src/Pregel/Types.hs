@@ -30,7 +30,7 @@ data PregelRun log = PregelRun
   deriving (Eq, Show)
 
 data RunConfig = RunConfig
-  { rcGraph :: Graph,
+  { rcGraph :: ValidGraph,
     rcSource :: NodeId,
     rcTarget :: Maybe NodeId,
     rcThreads :: Int,
@@ -40,7 +40,7 @@ data RunConfig = RunConfig
   deriving (Eq, Show)
 
 mkRunConfig ::
-  Graph ->
+  ValidGraph ->
   NodeId ->
   Maybe NodeId ->
   Int ->

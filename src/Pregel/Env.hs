@@ -13,14 +13,14 @@ import Control.Monad (foldM, forM)
 import Data.Foldable (toList)
 import qualified Data.Map.Strict as Map
 import qualified Data.Sequence as Seq
-import Graph.Types (Graph (..), NodeId, graphNodes)
+import Graph.Types (NodeId, ValidGraph, graphNodes)
 import Pregel.Error (PregelError (..))
 
 data PregelEnv msg = PregelEnv
   { peQueues :: Map.Map NodeId (TQueue msg)
   }
 
-initEnv :: Graph -> IO (PregelEnv msg)
+initEnv :: ValidGraph -> IO (PregelEnv msg)
 initEnv graph = do
   queuePairs <-
     mapM

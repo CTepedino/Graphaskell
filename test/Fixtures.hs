@@ -18,7 +18,7 @@ import Algorithm.Spec (SomeAlgorithmSpec (..), resolveAlgorithm)
 import Algorithm.Types (AlgorithmSpec (..))
 import Graph.ParseError (ParseError)
 import Graph.Parser (parseGraphFile)
-import Graph.Types (Algorithm (..), Graph, NodeId, nodeCount)
+import Graph.Types (Algorithm (..), NodeId, ValidGraph, nodeCount)
 import Pregel.Error (PregelError)
 import Output.Run (SomePregelRun (..))
 import Pregel.Types (RunConfig (..), mkRunConfig)
@@ -75,22 +75,22 @@ pageRankGraphText =
       "1 3"
     ]
 
-parseFixtureEither :: String -> Either ParseError Graph
+parseFixtureEither :: String -> Either ParseError ValidGraph
 parseFixtureEither =
   parseGraphFile
 
-parseFixture :: String -> Either FixtureError Graph
+parseFixture :: String -> Either FixtureError ValidGraph
 parseFixture text =
   first FixtureParse (parseFixtureEither text)
   where
     first f (Left err) = Left (f err)
     first _ (Right value) = Right value
 
-resolveFixtureEither :: Algorithm -> Graph -> Either AlgorithmError SomeAlgorithmSpec
+resolveFixtureEither :: Algorithm -> ValidGraph -> Either AlgorithmError SomeAlgorithmSpec
 resolveFixtureEither algorithm graph =
   resolveAlgorithm graph algorithm
 
-resolveFixture :: Algorithm -> Graph -> Either FixtureError SomeAlgorithmSpec
+resolveFixture :: Algorithm -> ValidGraph -> Either FixtureError SomeAlgorithmSpec
 resolveFixture algorithm graph =
   first FixtureResolve (resolveAlgorithm graph algorithm)
   where
@@ -123,7 +123,7 @@ runFixture =
 
 mkRunConfigFor ::
   AlgorithmSpec state msg log ->
-  Graph ->
+  ValidGraph ->
   NodeId ->
   Maybe NodeId ->
   Int ->

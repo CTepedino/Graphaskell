@@ -12,8 +12,9 @@ import Pregel.Types
 describeRun :: DescribeLogEntry log => Bool -> PregelRun log -> String
 describeRun verbose run =
   unlines
-    ( map (describeSuperstep verbose) (prLogs run)
-        ++ [""]
+    ( (if verbose
+        then map describeSuperstep (prLogs run) ++ [""]
+        else [])
         ++ superstepSummary run
         ++ [describeResult (prResult run)]
     )
@@ -30,13 +31,11 @@ superstepSummary run =
         ]
       else []
 
-describeSuperstep :: DescribeLogEntry log => Bool -> SuperstepLog log -> String
-describeSuperstep verbose stepLog =
+describeSuperstep :: DescribeLogEntry log => SuperstepLog log -> String
+describeSuperstep stepLog =
   unlines
     ( header
-        : if verbose
-          then map ("    " ++) (map describeLogEntry (sortedEntries stepLog))
-          else []
+        : map ("    " ++) (map describeLogEntry (sortedEntries stepLog))
     )
   where
     header =

@@ -4,10 +4,12 @@ module TestSupport
     assertEnginesAgreeSome,
     assertRankingsApprox,
     assertValidBfsPath,
+    enginesAgree,
     examplesGraphPaths,
     labelPropagationExpected,
     pageRankExpected,
     pathSourceTarget,
+    rankingsApprox,
     readExampleGraph,
     requireFixture,
     shortestHops,
@@ -24,9 +26,9 @@ import Data.List (isInfixOf)
 import Fixtures (FixtureError (..))
 import Graph.Parser (parseGraphFile)
 import Graph.Types
-  (     Distance (..),
-    Graph,
+  ( Distance (..),
     NodeId (..),
+    ValidGraph,
     distancePlusWeight,
     neighbors,
     nodeCount,
@@ -77,6 +79,24 @@ assertEnginesAgree cfg spec = do
   concurrent <- runPregel cfg spec
   assertRunsAgree sequential concurrent
 
+enginesAgree ::
+  (MessageLog msg log, Eq log) =>
+  RunConfig ->
+  AlgorithmSpec state msg log ->
+  IO Bool
+enginesAgree cfg spec = do
+  let sequential = runPregelSequential cfg spec
+  concurrent <- runPregel cfg spec
+  pure $
+    case (sequential, concurrent) of
+      (Right seqRun, Right concRun) ->
+        prResult seqRun == prResult concRun
+          && prSupersteps seqRun == prSupersteps concRun
+          && prMaxStepsReached seqRun == prMaxStepsReached concRun
+          && prLogs seqRun == prLogs concRun
+      _ ->
+        False
+
 assertRunsAgree ::
   (Eq log, Show log, Show e) =>
   Either e (PregelRun log) ->
@@ -95,7 +115,7 @@ assertRunsAgree sequential concurrent =
       assertFailure ("concurrent engine failed: " ++ show err)
 
 assertEnginesAgreeSome ::
-  Graph ->
+  ValidGraph ->
   NodeId ->
   Maybe NodeId ->
   Int ->
@@ -115,32 +135,30 @@ assertEnginesAgreeSome graph source target threads someSpec =
         )
         spec
 
+rankingsApprox :: Double -> [(NodeId, Double)] -> Result -> Bool
+rankingsApprox epsilon expected result =
+  case result of
+    Rankings actual ->
+      map fst expected == map fst actual
+        && all
+          ( \(nodeId, expectedRank) ->
+              case lookup nodeId actual of
+                Just actualRank ->
+                  abs (actualRank - expectedRank) <= epsilon
+                Nothing ->
+                  False
+          )
+          expected
+    _ ->
+      False
+
 assertRankingsApprox :: Double -> [(NodeId, Double)] -> Result -> Assertion
 assertRankingsApprox epsilon expected result =
-  case result of
-    Rankings actual -> do
-      map fst expected @?= map fst actual
-      mapM_
-        ( \(nodeId, expectedRank) ->
-            case lookup nodeId actual of
-              Nothing -> assertFailure ("missing rank for node " ++ show nodeId)
-              Just actualRank
-                | abs (actualRank - expectedRank) <= epsilon ->
-                    pure ()
-                | otherwise ->
-                    assertFailure
-                      ( "rank mismatch for node "
-                          ++ show nodeId
-                          ++ ": expected "
-                          ++ show expectedRank
-                          ++ ", got "
-                          ++ show actualRank
-                      )
-        )
-        expected
-    other -> assertFailure ("expected Rankings, got " ++ show other)
+  if rankingsApprox epsilon expected result
+    then pure ()
+    else assertFailure ("rankings differ from expected: " ++ show result)
 
-assertValidBfsPath :: Graph -> NodeId -> NodeId -> Distance -> Result -> Assertion
+assertValidBfsPath :: ValidGraph -> NodeId -> NodeId -> Distance -> Result -> Assertion
 assertValidBfsPath graph source target expectedDist result =
   case result of
     PathFound path dist -> do
@@ -173,7 +191,7 @@ assertComponentsListed :: String -> String -> Assertion
 assertComponentsListed needle haystack =
   assertBool ("output missing " ++ show needle) (needle `isInfixOf` haystack)
 
-validPath :: Graph -> [NodeId] -> Bool
+validPath :: ValidGraph -> [NodeId] -> Bool
 validPath _ [] =
   True
 validPath _ [_] =
@@ -181,7 +199,7 @@ validPath _ [_] =
 validPath graph (from : to : rest) =
   any ((== to) . fst) (neighbors graph from) && validPath graph (to : rest)
 
-shortestHops :: Graph -> NodeId -> NodeId -> Maybe Int
+shortestHops :: ValidGraph -> NodeId -> NodeId -> Maybe Int
 shortestHops graph source target
   | source == target =
       Just 0
@@ -204,7 +222,7 @@ shortestHops graph source target
                 ]
            in go (queue ++ next) visited'
 
-shortestWeightedDistance :: Graph -> NodeId -> NodeId -> Maybe Distance
+shortestWeightedDistance :: ValidGraph -> NodeId -> NodeId -> Maybe Distance
 shortestWeightedDistance graph source target
   | source == target =
       Just zeroDistance
@@ -245,10 +263,13 @@ examplesGraphPaths :: [FilePath]
 examplesGraphPaths =
   [ "examples/grafo-simple.txt",
     "examples/grafo-weighted.txt",
-    "examples/grafo-pagerank.txt"
+    "examples/grafo-pagerank.txt",
+    "examples/grafo-disconnected.txt",
+    "examples/grafo-componentes.txt",
+    "examples/grafo-lp-comunidades.txt"
   ]
 
-readExampleGraph :: FilePath -> IO Graph
+readExampleGraph :: FilePath -> IO ValidGraph
 readExampleGraph path = do
   exists <- doesFileExist path
   if exists

@@ -23,8 +23,8 @@ import Graph.Types
   ( Algorithm (..),
     Distance (..),
     Edge (..),
-    Graph,
     NodeId (..),
+    ValidGraph,
     Weight (..),
     buildGraph,
     nodeCount,
@@ -45,9 +45,13 @@ import Test.QuickCheck
     vectorOf,
     (===),
   )
+import Test.QuickCheck.Monadic qualified as QM (assert, monadicIO, run)
 import Test.QuickCheck.Test qualified as QC
 import TestSupport
-  ( shortestHops,
+  ( enginesAgree,
+    pageRankExpected,
+    rankingsApprox,
+    shortestHops,
     shortestWeightedDistance,
     validPath,
   )
@@ -62,8 +66,14 @@ propertyTests =
         check prop_bfsOptimalHopPath,
       "prop: Bellman-Ford on reachable pairs finds optimal weighted path" ~:
         check prop_bellmanFordOptimalPath,
-      "prop: PageRank rankings are non-negative on fixture graph" ~:
-        check prop_pageRankNonNegative,
+      "prop: PageRank converges to expected rankings on fixture graph" ~:
+        check prop_pageRankConvergesToExpected,
+      "prop: sequential and concurrent engines agree on all fixture algorithms" ~:
+        check prop_enginesAgreeAll,
+      "prop: sequential and concurrent engines agree on generated BFS graphs" ~:
+        check prop_bfsEnginesAgree,
+      "prop: sequential and concurrent engines agree on generated Bellman-Ford graphs" ~:
+        check prop_bellmanFordEnginesAgree,
       "prop: tryImproveDistance never worsens distance" ~:
         check prop_tryImproveDistanceNeverWorsens,
       "prop: tryRelabel is idempotent on equal label" ~:
@@ -119,20 +129,21 @@ data AlgorithmCase = AlgorithmCase
   { acAlgorithm :: Algorithm,
     acGraphText :: String,
     acSource :: NodeId,
-    acTarget :: Maybe NodeId
+    acTarget :: Maybe NodeId,
+    acThreads :: Int
   }
 
 algorithmCases :: [AlgorithmCase]
 algorithmCases =
-  [ AlgorithmCase BFS simpleGraphText (NodeId 0) (Just (NodeId 4)),
-    AlgorithmCase BellmanFord weightedGraphText (NodeId 0) (Just (NodeId 3)),
-    AlgorithmCase ConnectedComponents disconnectedGraphText (NodeId 0) Nothing,
-    AlgorithmCase PageRank pageRankGraphText (NodeId 0) Nothing,
-    AlgorithmCase LabelPropagation simpleGraphText (NodeId 0) Nothing
+  [ AlgorithmCase BFS simpleGraphText (NodeId 0) (Just (NodeId 4)) 4,
+    AlgorithmCase BellmanFord weightedGraphText (NodeId 0) (Just (NodeId 3)) 1,
+    AlgorithmCase ConnectedComponents disconnectedGraphText (NodeId 0) Nothing 2,
+    AlgorithmCase PageRank pageRankGraphText (NodeId 0) Nothing 2,
+    AlgorithmCase LabelPropagation simpleGraphText (NodeId 0) Nothing 2
   ]
 
 deterministicCase :: AlgorithmCase -> Bool
-deterministicCase AlgorithmCase {acAlgorithm, acGraphText, acSource, acTarget} =
+deterministicCase AlgorithmCase {acAlgorithm, acGraphText, acSource, acTarget, acThreads} =
   case parseFixtureEither acGraphText of
     Right graph ->
       case resolveFixtureEither acAlgorithm graph of
@@ -142,7 +153,7 @@ deterministicCase AlgorithmCase {acAlgorithm, acGraphText, acSource, acTarget} =
                   graph
                   acSource
                   acTarget
-                  1
+                  acThreads
                   (specMaxSupersteps spec (nodeCount graph))
                   False
            in case (runPregelSequential cfg spec, runPregelSequential cfg spec) of
@@ -155,7 +166,7 @@ deterministicCase AlgorithmCase {acAlgorithm, acGraphText, acSource, acTarget} =
     _ ->
       False
 
-genReachableGraph :: Gen (Graph, NodeId, NodeId)
+genReachableGraph :: Gen (ValidGraph, NodeId, NodeId)
 genReachableGraph = do
   nodeTotal <- choose (2, 5)
   target <- choose (1, nodeTotal - 1)
@@ -168,9 +179,11 @@ genReachableGraph = do
   let spine = zip [0 .. nodeTotal - 2] [1 .. nodeTotal - 1]
       pairs = nub (spine ++ [(from, to) | (from, to) <- extras, from /= to])
       edges = [Edge (NodeId from) (NodeId to) Nothing | (from, to) <- pairs]
-  pure (buildGraph nodeTotal edges, NodeId 0, NodeId target)
+  case buildGraph nodeTotal edges of
+    Right graph -> pure (graph, NodeId 0, NodeId target)
+    Left err -> error ("genReachableGraph produced invalid graph: " ++ show err)
 
-genWeightedReachableGraph :: Gen (Graph, NodeId, NodeId)
+genWeightedReachableGraph :: Gen (ValidGraph, NodeId, NodeId)
 genWeightedReachableGraph = do
   nodeTotal <- choose (2, 5)
   target <- choose (1, nodeTotal - 1)
@@ -198,9 +211,11 @@ genWeightedReachableGraph = do
         [ Edge (NodeId from) (NodeId to) (Just (Weight weight))
           | (from, to, weight) <- pairs
         ]
-  pure (buildGraph nodeTotal edges, NodeId 0, NodeId target)
+  case buildGraph nodeTotal edges of
+    Right graph -> pure (graph, NodeId 0, NodeId target)
+    Left err -> error ("genWeightedReachableGraph produced invalid graph: " ++ show err)
 
-runBfsSequential :: Graph -> NodeId -> NodeId -> Maybe Result
+runBfsSequential :: ValidGraph -> NodeId -> NodeId -> Maybe Result
 runBfsSequential graph source target =
   case runPregelSequential (mkPathConfig bfsSpec graph source target) bfsSpec of
     Right run ->
@@ -208,7 +223,7 @@ runBfsSequential graph source target =
     Left _ ->
       Nothing
 
-runBellmanFordSequential :: Graph -> NodeId -> NodeId -> Maybe Result
+runBellmanFordSequential :: ValidGraph -> NodeId -> NodeId -> Maybe Result
 runBellmanFordSequential graph source target =
   case
     runPregelSequential
@@ -220,7 +235,7 @@ runBellmanFordSequential graph source target =
     Left _ ->
       Nothing
 
-runPageRankSequential :: Graph -> Maybe Result
+runPageRankSequential :: ValidGraph -> Maybe Result
 runPageRankSequential graph =
   case
     runPregelSequential
@@ -241,7 +256,7 @@ runPageRankSequential graph =
 
 mkPathConfig ::
   AlgorithmSpec state msg log ->
-  Graph ->
+  ValidGraph ->
   NodeId ->
   NodeId ->
   RunConfig
@@ -286,18 +301,63 @@ prop_bellmanFordOptimalPath =
       _ ->
         False
 
-prop_pageRankNonNegative :: Property
-prop_pageRankNonNegative =
+prop_pageRankConvergesToExpected :: Property
+prop_pageRankConvergesToExpected =
   property $
     case parseFixtureEither pageRankGraphText of
       Right graph ->
         case runPageRankSequential graph of
-          Just (Rankings pairs) ->
-            all ((>= 0) . snd) pairs
+          Just result ->
+            rankingsApprox 1e-6 pageRankExpected result
           _ ->
             False
       _ ->
         False
+
+prop_enginesAgreeAll :: Property
+prop_enginesAgreeAll =
+  QM.monadicIO $
+    mapM_
+      ( \case' -> do
+          ok <- QM.run (enginesAgreeCase case')
+          QM.assert ok
+      )
+      algorithmCases
+
+enginesAgreeCase :: AlgorithmCase -> IO Bool
+enginesAgreeCase AlgorithmCase {acAlgorithm, acGraphText, acSource, acTarget, acThreads} =
+  case parseFixtureEither acGraphText of
+    Right graph ->
+      case resolveFixtureEither acAlgorithm graph of
+        Right (SomeAlgorithmSpec spec) ->
+          enginesAgree
+            ( mkRunConfig
+                graph
+                acSource
+                acTarget
+                acThreads
+                (specMaxSupersteps spec (nodeCount graph))
+                False
+            )
+            spec
+        _ ->
+          pure False
+    _ ->
+      pure False
+
+prop_bfsEnginesAgree :: Property
+prop_bfsEnginesAgree =
+  forAll genReachableGraph $ \(graph, source, target) ->
+    QM.monadicIO $ do
+      ok <- QM.run $ enginesAgree (mkPathConfig bfsSpec graph source target) bfsSpec
+      QM.assert ok
+
+prop_bellmanFordEnginesAgree :: Property
+prop_bellmanFordEnginesAgree =
+  forAll genWeightedReachableGraph $ \(graph, source, target) ->
+    QM.monadicIO $ do
+      ok <- QM.run $ enginesAgree (mkPathConfig bellmanFordSpec graph source target) bellmanFordSpec
+      QM.assert ok
 
 genDistance :: Gen Distance
 genDistance =

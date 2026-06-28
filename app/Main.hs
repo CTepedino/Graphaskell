@@ -3,8 +3,10 @@ module Main where
 import Output.Log (DescribeLogEntry (..))
 import Algorithm.Spec
   ( SomeAlgorithmSpec (..),
-    validatePathTarget,
     resolveAlgorithm,
+    resolveRunSource,
+    validatePathSource,
+    validatePathTarget,
   )
 import Algorithm.Types (AlgorithmSpec (..))
 import AppError (AppError (..), displayAppError)
@@ -15,9 +17,9 @@ import Data.Bifunctor (first)
 import Graph.Parser
   ( describeGraph,
     loadGraphFile,
-    validateRunNodes,
+    validateRunNodesForAlgorithm,
   )
-import Graph.Types (Graph, nodeCount)
+import Graph.Types (ValidGraph, nodeCount)
 import Output.Trace (describeRun)
 import Pregel.Engine (runPregel)
 import Pregel.Types (PregelRun (..), mkRunConfig)
@@ -38,17 +40,27 @@ run opts = do
 execute :: Options -> IO (Either AppError [String])
 execute opts = runExceptT $ do
   except (first AppAlgorithm (validatePathTarget (optAlgorithm opts) (optTarget opts)))
+  except (first AppAlgorithm (validatePathSource (optAlgorithm opts) (optSource opts)))
   graph <-
     exceptTWith AppLoad =<< liftIO (loadGraphFile (optGraphPath opts))
-  except (first AppParse (validateRunNodes graph (optSource opts) (optTarget opts)))
+  except
+    ( first AppParse
+        ( validateRunNodesForAlgorithm
+            graph
+            (optAlgorithm opts)
+            (optSource opts)
+            (optTarget opts)
+        )
+    )
   case resolveAlgorithm graph (optAlgorithm opts) of
     Left err ->
       except (Left (AppAlgorithm err))
     Right (SomeAlgorithmSpec spec) -> do
-      let cfg =
+      let source = resolveRunSource (optAlgorithm opts) (optSource opts)
+          cfg =
             mkRunConfig
               graph
-              (optSource opts)
+              source
               (optTarget opts)
               (optThreads opts)
               (specMaxSupersteps spec (nodeCount graph))
@@ -62,14 +74,14 @@ except = ExceptT . pure
 exceptTWith :: (e -> AppError) -> Either e a -> ExceptT AppError IO a
 exceptTWith f = ExceptT . pure . first f
 
-buildOutput :: DescribeLogEntry log => Options -> Graph -> PregelRun log -> [String]
+buildOutput :: DescribeLogEntry log => Options -> ValidGraph -> PregelRun log -> [String]
 buildOutput opts graph pregelRun =
   configBanner opts
     ++ [ "Graph loaded:",
          "",
          describeGraph graph,
          "",
-         "Pregel execution (async + STM):",
+         "Pregel execution (parallel vertex compute + STM):",
          "",
          describeRun (optVerbose opts) pregelRun
        ]
@@ -79,7 +91,7 @@ configBanner opts =
   [ "Graphaskell",
     "",
     "  Graph:      " ++ optGraphPath opts,
-    "  Source:     " ++ show (optSource opts),
+    "  Source:     " ++ sourceBanner opts,
     "  Target:     " ++ maybe "—" show (optTarget opts),
     "  Algorithm:  " ++ show (optAlgorithm opts),
     "  Threads:    "
@@ -87,3 +99,11 @@ configBanner opts =
       ++ " / "
       ++ show (optMaxCapabilities opts)
     ]
+
+sourceBanner :: Options -> String
+sourceBanner opts =
+  case optSource opts of
+    Just nodeId ->
+      show nodeId
+    Nothing ->
+      "—"

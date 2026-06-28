@@ -2,7 +2,7 @@ module AlgorithmTests (algorithmTests) where
 
 import Algorithm.Error (AlgorithmError (..))
 import Algorithm.Result (Result (..))
-import Algorithm.Spec (resolveAlgorithm, validatePathTarget)
+import Algorithm.Spec (resolveAlgorithm, validatePathSource, validatePathTarget)
 import Fixtures
   ( FixtureError (..),
     disconnectedGraphText,
@@ -55,6 +55,12 @@ algorithmTests =
         validatePathTarget BFS Nothing @?= Left MissingPathTarget,
       "validatePathTarget rejects Bellman-Ford without target" ~: do
         validatePathTarget BellmanFord Nothing @?= Left MissingPathTarget,
+      "validatePathSource rejects BFS without source" ~: do
+        validatePathSource BFS Nothing @?= Left MissingPathSource,
+      "validatePathSource rejects Bellman-Ford without source" ~: do
+        validatePathSource BellmanFord Nothing @?= Left MissingPathSource,
+      "validatePathSource accepts PageRank without source" ~: do
+        validatePathSource PageRank Nothing @?= Right (),
       "validatePathTarget accepts PageRank without target" ~: do
         validatePathTarget PageRank Nothing @?= Right (),
       "Bellman-Ford rejects unweighted graph" ~: do

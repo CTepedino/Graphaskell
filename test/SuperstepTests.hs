@@ -5,7 +5,7 @@ import Algorithm.Log (PathLogEntry (..))
 import Algorithm.Messages (DistanceMsg (..))
 import Algorithm.State (PathState (..), emptyPathState)
 import qualified Data.Map.Strict as Map
-import Graph.Types (Distance (..), Edge (..), NodeId (..), buildGraph, zeroDistance)
+import Graph.Types (Distance (..), Edge (..), NodeId (..), ValidGraph, buildGraph, zeroDistance)
 import Graph.VertexContext (buildVertexContexts)
 import Pregel.Superstep
   ( SuperstepResult (..),
@@ -20,7 +20,7 @@ superstepTests =
   TestList
     [ "processActiveVertices applies BFS update from bootstrap message" ~: do
         let graph =
-              buildGraph
+              requireGraph
                 3
                 [ Edge (NodeId 0) (NodeId 1) Nothing,
                   Edge (NodeId 1) (NodeId 2) Nothing
@@ -50,7 +50,7 @@ superstepTests =
             assertFailure ("expected successful superstep, got " ++ show err),
       "processActiveVertices leaves state unchanged without messages" ~: do
         let graph =
-              buildGraph
+              requireGraph
                 2
                 [ Edge (NodeId 0) (NodeId 1) Nothing
                 ]
@@ -75,3 +75,9 @@ superstepTests =
           Left err ->
             assertFailure ("expected successful superstep, got " ++ show err)
     ]
+
+requireGraph :: Int -> [Edge] -> ValidGraph
+requireGraph nodeTotal edges =
+  case buildGraph nodeTotal edges of
+    Right graph -> graph
+    Left err -> error ("requireGraph failed: " ++ show err)

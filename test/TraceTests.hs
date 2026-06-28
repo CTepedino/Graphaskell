@@ -20,6 +20,10 @@ traceTests =
         let output = describeRun False sampleRun
         assertBool "does not show vertex updates" $
           not ("vertex 0 updated" `isInfixOf` output),
+      "describeRun without verbose omits superstep headers" ~: do
+        let output = describeRun False sampleRun
+        assertBool "does not show superstep headers" $
+          not ("Superstep" `isInfixOf` output),
       "describeRun with verbose includes vertex detail" ~: do
         let output = describeRun True sampleRun
         assertBool "shows vertex updates" $

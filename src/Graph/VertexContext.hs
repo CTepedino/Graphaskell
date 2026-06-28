@@ -23,7 +23,7 @@ data VertexContext = VertexContext
 
 type VertexContexts = Map NodeId VertexContext
 
-buildVertexContexts :: Graph -> VertexContexts
+buildVertexContexts :: ValidGraph -> VertexContexts
 buildVertexContexts graph =
   let n = nodeCount graph
    in Map.fromList
@@ -38,7 +38,7 @@ buildVertexContexts graph =
         | nodeId <- graphNodes graph
         ]
 
-incomingWeights :: Graph -> NodeId -> Map NodeId Weight
+incomingWeights :: ValidGraph -> NodeId -> Map NodeId Weight
 incomingWeights graph nodeId =
   Map.fromList
     [ (edgeFrom edge, weight)

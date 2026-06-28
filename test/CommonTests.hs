@@ -13,7 +13,7 @@ import Algorithm.Observability (pathObserver)
 import Algorithm.Result (Result (..))
 import Algorithm.State (PathState (..), emptyPathState)
 import qualified Data.Map.Strict as Map
-import Graph.Types (Distance (..), Edge (..), Graph, NodeId (..), buildGraph)
+import Graph.Types (Distance (..), Edge (..), GraphEndpoint (..), GraphError (..), NodeId (..), ValidGraph, buildGraph)
 import Pregel.Types (RunConfig (..))
 import Test.HUnit
 
@@ -70,18 +70,27 @@ commonTests =
         let graph = sampleGraph
             cfg = samplePathCfg graph (NodeId 99)
             states = Map.singleton (NodeId 0) (PathState (Just (Distance 0)) Nothing)
-        extractPathResult states cfg @?= Left (TargetNodeMissing (NodeId 99))
+        extractPathResult states cfg @?= Left (TargetNodeMissing (NodeId 99)),
+      "buildGraph rejects out-of-range edge endpoints" ~:
+        buildGraph 3 [Edge (NodeId 0) (NodeId 5) Nothing]
+          @?= Left (GraphBuildInvalidNodeId EdgeTo (NodeId 5) 2),
+      "buildGraph rejects non-positive node counts" ~:
+        buildGraph 0 [] @?= Left (GraphBuildInvalidNodeCount 0)
     ]
 
-sampleGraph :: Graph
+sampleGraph :: ValidGraph
 sampleGraph =
-  buildGraph
-    3
-    [ Edge (NodeId 0) (NodeId 1) Nothing,
-      Edge (NodeId 1) (NodeId 2) Nothing
-    ]
+  case
+    buildGraph
+      3
+      [ Edge (NodeId 0) (NodeId 1) Nothing,
+        Edge (NodeId 1) (NodeId 2) Nothing
+      ]
+  of
+    Right graph -> graph
+    Left err -> error ("sampleGraph construction failed: " ++ show err)
 
-samplePathCfg :: Graph -> NodeId -> RunConfig
+samplePathCfg :: ValidGraph -> NodeId -> RunConfig
 samplePathCfg graph target =
   RunConfig
     { rcGraph = graph,

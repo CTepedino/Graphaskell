@@ -4,8 +4,12 @@ module Graph.Types
     Weight (..),
     Algorithm (..),
     Edge (..),
-    Graph (..),
+    ValidGraph,
+    GraphError (..),
+    GraphEndpoint (..),
     nodeCount,
+    graphNodes,
+    graphEdges,
     neighbors,
     buildGraph,
     isValidNode,
@@ -61,30 +65,73 @@ data Edge = Edge
   deriving (Eq, Show)
 
 data Graph = Graph
-  { graphNodes :: [NodeId],
-    graphEdges :: [Edge],
-    graphAdj :: Map NodeId [(NodeId, Maybe Weight)]
+  { gNodes :: [NodeId],
+    gEdges :: [Edge],
+    gAdj :: Map NodeId [(NodeId, Maybe Weight)]
   }
   deriving (Eq, Show)
 
-nodeCount :: Graph -> Int
-nodeCount = length . graphNodes
+newtype ValidGraph = ValidGraph Graph
+  deriving (Eq, Show)
 
-neighbors :: Graph -> NodeId -> [(NodeId, Maybe Weight)]
-neighbors graph nodeId =
-  Map.findWithDefault [] nodeId (graphAdj graph)
+data GraphEndpoint
+  = EdgeFrom
+  | EdgeTo
+  deriving (Eq, Show)
 
-buildGraph :: Int -> [Edge] -> Graph
-buildGraph nodeTotal edges =
+data GraphError
+  = GraphBuildInvalidNodeCount Int
+  | GraphBuildInvalidNodeId GraphEndpoint NodeId Int
+  deriving (Eq, Show)
+
+nodeCount :: ValidGraph -> Int
+nodeCount (ValidGraph Graph {gNodes = nodes}) =
+  length nodes
+
+graphNodes :: ValidGraph -> [NodeId]
+graphNodes (ValidGraph Graph {gNodes = nodes}) =
+  nodes
+
+graphEdges :: ValidGraph -> [Edge]
+graphEdges (ValidGraph Graph {gEdges = edges}) =
+  edges
+
+neighbors :: ValidGraph -> NodeId -> [(NodeId, Maybe Weight)]
+neighbors (ValidGraph Graph {gAdj = adj}) nodeId =
+  Map.findWithDefault [] nodeId adj
+
+buildGraph :: Int -> [Edge] -> Either GraphError ValidGraph
+buildGraph nodeTotal edges = do
+  if nodeTotal <= 0
+    then Left (GraphBuildInvalidNodeCount nodeTotal)
+    else do
+      mapM_ (validateEdgeEndpoints nodeTotal) edges
+      pure (ValidGraph (mkGraph nodeTotal edges))
+
+isValidNode :: ValidGraph -> NodeId -> Bool
+isValidNode graph nodeId =
+  let NodeId n = nodeId
+   in n >= 0 && n < nodeCount graph
+
+mkGraph :: Int -> [Edge] -> Graph
+mkGraph nodeTotal edges =
   Graph
-    { graphNodes = [NodeId n | n <- [0 .. nodeTotal - 1]],
-      graphEdges = edges,
-      graphAdj = foldr insertEdge Map.empty edges
+    { gNodes = [NodeId n | n <- [0 .. nodeTotal - 1]],
+      gEdges = edges,
+      gAdj = foldr insertEdge Map.empty edges
     }
   where
     insertEdge (Edge from to weight) adj =
       Map.insertWith (++) from [(to, weight)] adj
 
-isValidNode :: Graph -> NodeId -> Bool
-isValidNode graph (NodeId n) =
-  n >= 0 && n < nodeCount graph
+validateEdgeEndpoints :: Int -> Edge -> Either GraphError ()
+validateEdgeEndpoints nodeTotal (Edge from to _) = do
+  validateNodeId nodeTotal EdgeFrom from
+  validateNodeId nodeTotal EdgeTo to
+
+validateNodeId :: Int -> GraphEndpoint -> NodeId -> Either GraphError ()
+validateNodeId nodeTotal endpoint (NodeId n)
+  | n >= 0 && n < nodeTotal =
+      Right ()
+  | otherwise =
+      Left (GraphBuildInvalidNodeId endpoint (NodeId n) (nodeTotal - 1))

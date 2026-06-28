@@ -3,10 +3,9 @@ module Pregel.Engine
   )
 where
 
-import Algorithm.Types (AlgorithmSpec (..))
 import Algorithm.Log (MessageLog)
+import Algorithm.Types (AlgorithmSpec (..))
 import Control.Concurrent.STM (atomically)
-import qualified Data.Map.Strict as Map
 import Graph.VertexContext (VertexContexts, buildVertexContexts)
 import Pregel.Env
   ( PregelEnv,
@@ -20,8 +19,9 @@ import Pregel.Pool (runPool)
 import Pregel.Superstep
   ( SuperstepResult (..),
     initialVertexStates,
+    mergeSuperstepOutcomes,
     mkSuperstepLog,
-    processActiveVertices,
+    processVertex,
   )
 import Pregel.Types
 
@@ -74,58 +74,60 @@ loopConcurrent cfg spec contexts step states env
       if null actives
         then pure (Right (states, [], step, False))
         else do
-          fetchResults <-
+          let workers = min (rcThreads cfg) (length actives)
+              tracing = rcTrace cfg
+          workerResults <-
             runPool
-              (rcThreads cfg)
-              [ atomically (flushVertexQueue nodeId env)
-                | nodeId <- actives
+              workers
+              [ do
+                  fetchResult <- atomically (flushVertexQueue nodeId env)
+                  case fetchResult of
+                    Left err ->
+                      pure (Left err)
+                    Right messages ->
+                      pure (processVertex tracing spec contexts states nodeId messages)
+              | nodeId <- actives
               ]
-          case sequence fetchResults of
+          case sequence workerResults of
             Left err ->
               pure (Left err)
-            Right messagesList -> do
-              let messageMap = Map.fromList (zip actives messagesList)
-                  messageFor nodeId =
-                    Map.findWithDefault [] nodeId messageMap
-              case processActiveVertices (rcTrace cfg) spec contexts states messageFor actives of
-                Left err ->
-                  pure (Left err)
-                Right superstepResult -> do
-                  let logEntry =
-                        mkSuperstepLog
-                          step
-                          actives
-                          (ssOutgoing superstepResult)
-                          (ssEntries superstepResult)
-                  if null (ssOutgoing superstepResult)
-                    then
-                      pure
-                        ( Right
-                            ( ssNewStates superstepResult,
-                              [logEntry],
-                              step + 1,
-                              False
-                            )
+            Right outcomes -> do
+              let superstepResult = mergeSuperstepOutcomes states outcomes
+                  logEntry =
+                    mkSuperstepLog
+                      step
+                      actives
+                      (ssOutgoing superstepResult)
+                      (ssEntries superstepResult)
+              if null (ssOutgoing superstepResult)
+                then
+                  pure
+                    ( Right
+                        ( ssNewStates superstepResult,
+                          [logEntry],
+                          step + 1,
+                          False
                         )
-                    else do
-                      deliverResult <-
-                        deliverAll env (ssOutgoing superstepResult)
-                      case deliverResult of
-                        Left err ->
-                          pure (Left err)
-                        Right () -> do
-                          loopResult <-
-                            loopConcurrent
-                              cfg
-                              spec
-                              contexts
-                              (step + 1)
-                              (ssNewStates superstepResult)
-                              env
-                          pure
-                            ( fmap
-                                ( \(finalStates, restLogs, finalStep, maxStepsReached) ->
-                                    (finalStates, logEntry : restLogs, finalStep, maxStepsReached)
-                                )
-                                loopResult
+                    )
+                else do
+                  deliverResult <-
+                    deliverAll env (ssOutgoing superstepResult)
+                  case deliverResult of
+                    Left err ->
+                      pure (Left err)
+                    Right () -> do
+                      loopResult <-
+                        loopConcurrent
+                          cfg
+                          spec
+                          contexts
+                          (step + 1)
+                          (ssNewStates superstepResult)
+                          env
+                      pure
+                        ( fmap
+                            ( \(finalStates, restLogs, finalStep, maxStepsReached) ->
+                                (finalStates, logEntry : restLogs, finalStep, maxStepsReached)
                             )
+                            loopResult
+                        )

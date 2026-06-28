@@ -2,6 +2,8 @@ module Algorithm.Spec
   ( SomeAlgorithmSpec (..),
     requirePathTarget,
     resolveAlgorithm,
+    resolveRunSource,
+    validatePathSource,
     validatePathTarget,
   )
 where
@@ -14,17 +16,39 @@ import Algorithm.Error (AlgorithmError (..))
 import Algorithm.LabelPropagation (labelPropagationSpec)
 import Algorithm.PageRank (pageRankSpec)
 import Algorithm.Types (SomeAlgorithmSpec (..))
-import Graph.Types
+import Graph.Types (ValidGraph, Algorithm (..), NodeId (..))
 
 requirePathTarget :: Maybe NodeId -> Either AlgorithmError NodeId
 requirePathTarget = maybe (Left MissingPathTarget) Right
 
-validatePathTarget :: Algorithm -> Maybe NodeId -> Either AlgorithmError ()
-validatePathTarget BFS target = requirePathTarget target >> Right ()
-validatePathTarget BellmanFord target = requirePathTarget target >> Right ()
-validatePathTarget _ _ = Right ()
+pathAlgorithm :: Algorithm -> Bool
+pathAlgorithm BFS = True
+pathAlgorithm BellmanFord = True
+pathAlgorithm _ = False
 
-resolveAlgorithm :: Graph -> Algorithm -> Either AlgorithmError SomeAlgorithmSpec
+validatePathSource :: Algorithm -> Maybe NodeId -> Either AlgorithmError ()
+validatePathSource algo source
+  | pathAlgorithm algo, Nothing <- source =
+      Left MissingPathSource
+  | otherwise =
+      Right ()
+
+validatePathTarget :: Algorithm -> Maybe NodeId -> Either AlgorithmError ()
+validatePathTarget algo target
+  | pathAlgorithm algo =
+      requirePathTarget target >> Right ()
+  | otherwise =
+      Right ()
+
+resolveRunSource :: Algorithm -> Maybe NodeId -> NodeId
+resolveRunSource algo source =
+  case source of
+    Just nodeId ->
+      nodeId
+    Nothing ->
+      NodeId 0
+
+resolveAlgorithm :: ValidGraph -> Algorithm -> Either AlgorithmError SomeAlgorithmSpec
 resolveAlgorithm _ BFS = Right (SomeAlgorithmSpec bfsSpec)
 resolveAlgorithm graph BellmanFord = do
   validateWeightedGraph graph

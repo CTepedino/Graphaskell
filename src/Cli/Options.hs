@@ -16,7 +16,7 @@ import System.Exit (die)
 data Options = Options
   { optThreads :: Int,
     optGraphPath :: FilePath,
-    optSource :: NodeId,
+    optSource :: Maybe NodeId,
     optTarget :: Maybe NodeId,
     optAlgorithm :: Algorithm,
     optMaxCapabilities :: Int,
@@ -65,7 +65,7 @@ cliReader parser =
 rawParser ::
   Parser
     ( FilePath,
-      NodeId,
+      Maybe NodeId,
       Maybe NodeId,
       Algorithm,
       Maybe Int,
@@ -79,12 +79,14 @@ rawParser =
           <> metavar "GRAPH"
           <> help "Path to the graph file (graph definition only)"
       )
-    <*> option
-      (cliReader parseNodeIdOpt)
-      ( long "source"
-          <> short 's'
-          <> metavar "NODE"
-          <> help "Source vertex"
+    <*> optional
+      ( option
+          (cliReader parseNodeIdOpt)
+          ( long "source"
+              <> short 's'
+              <> metavar "NODE"
+              <> help "Source vertex (required for BFS and Bellman-Ford)"
+          )
       )
     <*> optional
       ( option
