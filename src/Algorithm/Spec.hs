@@ -1,10 +1,6 @@
 module Algorithm.Spec
-  ( AlgorithmSpec,
-    GlobalAlgorithmSpec,
-    PathAlgorithmSpec,
-    SomeAlgorithmSpec (..),
-    globalRunSpec,
-    pathRunSpec,
+  ( SomeAlgorithmSpec (..),
+    requirePathTarget,
     resolveAlgorithm,
     validatePathTarget,
   )
@@ -17,12 +13,15 @@ import Algorithm.ConnectedComponents (connectedComponentsGlobalSpec)
 import Algorithm.Error (AlgorithmError (..))
 import Algorithm.LabelPropagation (labelPropagationGlobalSpec)
 import Algorithm.PageRank (pageRankGlobalSpec)
-import Algorithm.Types
+import Algorithm.Types (SomeAlgorithmSpec (..))
 import Graph.Types
 
+requirePathTarget :: Maybe NodeId -> Either AlgorithmError NodeId
+requirePathTarget = maybe (Left MissingPathTarget) Right
+
 validatePathTarget :: Algorithm -> Maybe NodeId -> Either AlgorithmError ()
-validatePathTarget BFS Nothing = Left MissingPathTarget
-validatePathTarget BellmanFord Nothing = Left MissingPathTarget
+validatePathTarget BFS target = requirePathTarget target >> Right ()
+validatePathTarget BellmanFord target = requirePathTarget target >> Right ()
 validatePathTarget _ _ = Right ()
 
 resolveAlgorithm :: Graph -> Algorithm -> Either AlgorithmError SomeAlgorithmSpec

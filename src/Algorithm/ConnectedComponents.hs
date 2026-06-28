@@ -4,58 +4,30 @@ module Algorithm.ConnectedComponents
 where
 
 import Algorithm.Common
-  ( emitLabelMessages,
-    extractComponentResult,
-    labelBootstrap,
-    labelMaxSupersteps,
+  ( extractComponentResult,
+    labelVertexUpdate,
     labelsFromMessages,
     minimumWithSelf,
-    runVertexUpdate,
     tryRelabel,
   )
-import Algorithm.Log (LabelLogEntry)
 import Algorithm.Messages (LabelMsg)
-import Algorithm.Observability (labelObserver)
-import Algorithm.State (LabelState (..), emptyLabelState)
-import Algorithm.Types (GlobalAlgorithmSpec (..))
-import Graph.Types
-import Graph.VertexContext (VertexContext (..))
+import Algorithm.State (LabelState (..))
+import Algorithm.Types (GlobalAlgorithmSpec, LabelLog, mkLabelGlobalSpec)
+import Graph.Types (NodeId)
+import Graph.VertexContext (VertexContext)
 import Pregel.Types
 
-type ComponentLog = LabelLogEntry LabelMsg
-
-connectedComponentsGlobalSpec :: GlobalAlgorithmSpec LabelState LabelMsg ComponentLog
+connectedComponentsGlobalSpec :: GlobalAlgorithmSpec LabelState LabelMsg LabelLog
 connectedComponentsGlobalSpec =
-  GlobalAlgorithmSpec
-    { globalInitState = initState,
-      globalDefaultState = emptyLabelState,
-      globalBootstrap = bootstrap,
-      globalVertexUpdate = vertexUpdate,
-      globalExtractResult = extractComponentResult,
-      globalMaxSupersteps = labelMaxSupersteps,
-      globalObserveStep = labelObserver
-    }
-
-initState :: NodeId -> RunConfig -> LabelState
-initState nodeId _cfg =
-  LabelState nodeId
-
-bootstrap :: RunConfig -> [(NodeId, LabelMsg)]
-bootstrap = labelBootstrap
+  mkLabelGlobalSpec vertexUpdate extractComponentResult
 
 vertexUpdate ::
   VertexContext ->
   LabelState ->
   [LabelMsg] ->
-  VertexStepResult LabelState LabelMsg ComponentLog
-vertexUpdate vtx state messages =
-  runVertexUpdate
-    vtx
-    state
-    messages
-    (ccUpdate (vcNodeId vtx))
-    emitLabelMessages
-    labelObserver
+  VertexStepResult LabelState LabelMsg
+vertexUpdate =
+  labelVertexUpdate ccUpdate
 
 ccUpdate :: NodeId -> [LabelMsg] -> LabelState -> Maybe LabelState
 ccUpdate nodeId messages state =

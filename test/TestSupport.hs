@@ -13,6 +13,7 @@ module TestSupport
   )
 where
 
+import Algorithm.Log (MessageLog)
 import Algorithm.Result (Result (..))
 import Algorithm.Spec (SomeAlgorithmSpec (..))
 import Algorithm.Types (GlobalAlgorithmSpec (..), PathAlgorithmSpec (..))
@@ -55,7 +56,7 @@ assertEnginesAgreePath prc pathSpec = do
   assertRunsAgree sequential concurrent
 
 assertEnginesAgreeGlobal ::
-  (Eq log, Show log) =>
+  (MessageLog msg log, Eq log, Show log) =>
   RunConfig ->
   GlobalAlgorithmSpec state msg log ->
   IO Assertion
@@ -102,6 +103,7 @@ assertEnginesAgreeSome graph source target threads someSpec =
                 targetNode
                 threads
                 (psMaxSupersteps pathSpec (nodeCount graph))
+                False
             )
             pathSpec
     SomeGlobalAlgorithmSpec globalSpec ->
@@ -111,6 +113,7 @@ assertEnginesAgreeSome graph source target threads someSpec =
             source
             threads
             (globalMaxSupersteps globalSpec (nodeCount graph))
+            False
         )
         globalSpec
 

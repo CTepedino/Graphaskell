@@ -2,12 +2,14 @@ module TraceTests (traceTests) where
 
 import Algorithm.Log (PathLogEntry (..), RankLogEntry (..))
 import Algorithm.Messages (DistanceMsg (..), RankMsg)
-import Algorithm.Result (Result (..), describeResult)
+import Algorithm.Result (Result (..))
+import Output.Result (describeResult)
 import Data.List (isInfixOf)
 import Fixtures (disconnectedGraphText, runFixture)
 import Graph.Types (Algorithm (..))
 import Output.Trace (describeRun)
-import Pregel.Types (PregelRun (..), SomePregelRun (..), SuperstepLog (..))
+import Output.Run (SomePregelRun (..))
+import Pregel.Types (PregelRun (..), SuperstepLog (..))
 import Test.HUnit
 import TestSupport (assertComponentsListed)
 

@@ -1,20 +1,31 @@
 module Algorithm.Types
   ( AlgorithmSpec (..),
     GlobalAlgorithmSpec (..),
+    mkLabelGlobalSpec,
+    mkRankGlobalSpec,
     PathAlgorithmSpec (..),
     PathLog,
+    LabelLog,
+    RankLog,
     SomeAlgorithmSpec (..),
     globalRunSpec,
     pathRunSpec,
   )
 where
 
+import Algorithm.Common
+  ( atLeastOneSuperstep,
+    labelBootstrap,
+    labelInitState,
+    pageRankMaxSupersteps,
+  )
 import Algorithm.Error (AlgorithmError (..))
-import Algorithm.Log (DescribeLogEntry, PathLogEntry (..))
-import Algorithm.Messages (DistanceMsg)
-import Algorithm.Observability (pathObserver)
+import Algorithm.Log (LabelLogEntry (..), MessageLog, PathLogEntry (..), RankLogEntry (..))
+import Algorithm.Messages (DistanceMsg, LabelMsg, RankMsg)
+import Output.Log (DescribeLogEntry)
+import Algorithm.Observability (labelObserver, pathObserver, rankObserver)
 import Algorithm.Result (Result)
-import Algorithm.State (PathState)
+import Algorithm.State (LabelState, PathState, RankState, emptyLabelState, emptyRankState)
 import Data.Map.Strict (Map)
 import Graph.Types
 import Graph.VertexContext (VertexContext)
@@ -28,7 +39,7 @@ data AlgorithmSpec state msg log = AlgorithmSpec
       VertexContext ->
       state ->
       [msg] ->
-      VertexStepResult state msg log,
+      VertexStepResult state msg,
     specExtractResult :: Map NodeId state -> Either AlgorithmError Result,
     specMaxSupersteps :: Int -> Int,
     specObserveStep ::
@@ -41,6 +52,10 @@ data AlgorithmSpec state msg log = AlgorithmSpec
 
 type PathLog = PathLogEntry DistanceMsg
 
+type LabelLog = LabelLogEntry LabelMsg
+
+type RankLog = RankLogEntry RankMsg
+
 data PathAlgorithmSpec = PathAlgorithmSpec
   { psInitState :: NodeId -> PathRunConfig -> PathState,
     psDefaultState :: PathState,
@@ -49,7 +64,7 @@ data PathAlgorithmSpec = PathAlgorithmSpec
       VertexContext ->
       PathState ->
       [DistanceMsg] ->
-      VertexStepResult PathState DistanceMsg PathLog,
+      VertexStepResult PathState DistanceMsg,
     psExtractResult ::
       Map NodeId PathState ->
       PathRunConfig ->
@@ -60,7 +75,7 @@ data PathAlgorithmSpec = PathAlgorithmSpec
 data SomeAlgorithmSpec where
   SomePathAlgorithmSpec :: PathAlgorithmSpec -> SomeAlgorithmSpec
   SomeGlobalAlgorithmSpec ::
-    (DescribeLogEntry log, Eq log, Show log) =>
+    (DescribeLogEntry log, MessageLog msg log, Eq log, Show log) =>
     GlobalAlgorithmSpec state msg log ->
     SomeAlgorithmSpec
 
@@ -87,7 +102,7 @@ data GlobalAlgorithmSpec state msg log = GlobalAlgorithmSpec
       VertexContext ->
       state ->
       [msg] ->
-      VertexStepResult state msg log,
+      VertexStepResult state msg,
     globalExtractResult :: Map NodeId state -> RunConfig -> Either AlgorithmError Result,
     globalMaxSupersteps :: Int -> Int,
     globalObserveStep ::
@@ -97,6 +112,38 @@ data GlobalAlgorithmSpec state msg log = GlobalAlgorithmSpec
       [(NodeId, msg)] ->
       [log]
   }
+
+mkLabelGlobalSpec ::
+  (VertexContext -> LabelState -> [LabelMsg] -> VertexStepResult LabelState LabelMsg) ->
+  (Map NodeId LabelState -> RunConfig -> Either AlgorithmError Result) ->
+  GlobalAlgorithmSpec LabelState LabelMsg LabelLog
+mkLabelGlobalSpec vertexUpdate extractResult =
+  GlobalAlgorithmSpec
+    { globalInitState = labelInitState,
+      globalDefaultState = emptyLabelState,
+      globalBootstrap = labelBootstrap,
+      globalVertexUpdate = vertexUpdate,
+      globalExtractResult = extractResult,
+      globalMaxSupersteps = atLeastOneSuperstep,
+      globalObserveStep = labelObserver
+    }
+
+mkRankGlobalSpec ::
+  (NodeId -> RunConfig -> RankState) ->
+  (RunConfig -> [(NodeId, RankMsg)]) ->
+  (VertexContext -> RankState -> [RankMsg] -> VertexStepResult RankState RankMsg) ->
+  (Map NodeId RankState -> RunConfig -> Either AlgorithmError Result) ->
+  GlobalAlgorithmSpec RankState RankMsg RankLog
+mkRankGlobalSpec initState bootstrap vertexUpdate extractResult =
+  GlobalAlgorithmSpec
+    { globalInitState = initState,
+      globalDefaultState = emptyRankState,
+      globalBootstrap = bootstrap,
+      globalVertexUpdate = vertexUpdate,
+      globalExtractResult = extractResult,
+      globalMaxSupersteps = pageRankMaxSupersteps,
+      globalObserveStep = rankObserver
+    }
 
 globalRunSpec ::
   GlobalAlgorithmSpec state msg log ->

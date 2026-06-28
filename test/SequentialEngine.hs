@@ -12,6 +12,7 @@ import Algorithm.Types
     globalRunSpec,
     pathRunSpec,
   )
+import Algorithm.Log (MessageLog)
 import qualified Data.Map.Strict as Map
 import Graph.VertexContext (VertexContexts, buildVertexContexts)
 import Pregel.Error (PregelError (..))
@@ -33,13 +34,18 @@ runPathSequential prc pathSpec =
   runSequential (pathRunConfigToRunConfig prc) (pathRunSpec pathSpec prc)
 
 runGlobalSequential ::
+  MessageLog msg log =>
   RunConfig ->
   GlobalAlgorithmSpec state msg log ->
   Either PregelError (PregelRun log)
 runGlobalSequential cfg globalSpec =
   runSequential cfg (globalRunSpec globalSpec cfg)
 
-runSequential :: RunConfig -> AlgorithmSpec state msg log -> Either PregelError (PregelRun log)
+runSequential ::
+  MessageLog msg log =>
+  RunConfig ->
+  AlgorithmSpec state msg log ->
+  Either PregelError (PregelRun log)
 runSequential cfg spec = do
   let graph = rcGraph cfg
       contexts = buildVertexContexts graph
@@ -60,6 +66,7 @@ runSequential cfg spec = do
           }
 
 loop ::
+  MessageLog msg log =>
   VertexContexts ->
   AlgorithmSpec state msg log ->
   RunConfig ->
@@ -77,7 +84,7 @@ loop contexts spec cfg step states queues
           messageFor nodeId =
             Map.findWithDefault [] nodeId queues
       SuperstepResult {ssNewStates = newStates, ssOutgoing = outgoing, ssEntries = entries} <-
-        processActiveVertices spec contexts states messageFor actives
+        processActiveVertices (rcTrace cfg) spec contexts states messageFor actives
       let logEntry = mkSuperstepLog step actives outgoing entries
       if null outgoing
         then pure (newStates, [logEntry], step + 1, False)

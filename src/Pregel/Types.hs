@@ -1,8 +1,6 @@
 module Pregel.Types
   ( SuperstepLog (..),
     PregelRun (..),
-    SomePregelRun (..),
-    somePregelResult,
     PathRunConfig (..),
     RunConfig (..),
     VertexStepResult (..),
@@ -15,7 +13,6 @@ module Pregel.Types
 where
 
 import Algorithm.Result (Result)
-import Algorithm.Log (DescribeLogEntry)
 import Data.Map.Strict (Map)
 import Graph.Types
 
@@ -35,19 +32,13 @@ data PregelRun log = PregelRun
   }
   deriving (Eq, Show)
 
-data SomePregelRun where
-  SomePregelRun :: DescribeLogEntry log => PregelRun log -> SomePregelRun
-
-somePregelResult :: SomePregelRun -> Result
-somePregelResult (SomePregelRun run) =
-  prResult run
-
 data PathRunConfig = PathRunConfig
   { prcGraph :: Graph,
     prcSource :: NodeId,
     prcTarget :: NodeId,
     prcThreads :: Int,
-    prcMaxSteps :: Int
+    prcMaxSteps :: Int,
+    prcTrace :: Bool
   }
   deriving (Eq, Show)
 
@@ -55,7 +46,8 @@ data RunConfig = RunConfig
   { rcGraph :: Graph,
     rcSource :: NodeId,
     rcThreads :: Int,
-    rcMaxSteps :: Int
+    rcMaxSteps :: Int,
+    rcTrace :: Bool
   }
   deriving (Eq, Show)
 
@@ -65,7 +57,8 @@ pathRunConfigToRunConfig prc =
     { rcGraph = prcGraph prc,
       rcSource = prcSource prc,
       rcThreads = prcThreads prc,
-      rcMaxSteps = prcMaxSteps prc
+      rcMaxSteps = prcMaxSteps prc,
+      rcTrace = prcTrace prc
     }
 
 mkPathRunConfig ::
@@ -74,29 +67,31 @@ mkPathRunConfig ::
   NodeId ->
   Int ->
   Int ->
+  Bool ->
   PathRunConfig
-mkPathRunConfig graph source target threads maxSteps =
+mkPathRunConfig graph source target threads maxSteps trace =
   PathRunConfig
     { prcGraph = graph,
       prcSource = source,
       prcTarget = target,
       prcThreads = threads,
-      prcMaxSteps = maxSteps
+      prcMaxSteps = maxSteps,
+      prcTrace = trace
     }
 
-mkRunConfig :: Graph -> NodeId -> Int -> Int -> RunConfig
-mkRunConfig graph source threads maxSteps =
+mkRunConfig :: Graph -> NodeId -> Int -> Int -> Bool -> RunConfig
+mkRunConfig graph source threads maxSteps trace =
   RunConfig
     { rcGraph = graph,
       rcSource = source,
       rcThreads = threads,
-      rcMaxSteps = maxSteps
+      rcMaxSteps = maxSteps,
+      rcTrace = trace
     }
 
-data VertexStepResult state msg log = VertexStepResult
+data VertexStepResult state msg = VertexStepResult
   { vsrState :: state,
-    vsrOutgoing :: [(NodeId, msg)],
-    vsrLogs :: [log]
+    vsrOutgoing :: [(NodeId, msg)]
   }
   deriving (Eq, Show)
 

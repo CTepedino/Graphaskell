@@ -88,5 +88,6 @@ samplePathCfg graph target =
       prcSource = 0,
       prcTarget = target,
       prcThreads = 1,
-      prcMaxSteps = 100
+      prcMaxSteps = 100,
+      prcTrace = False
     }

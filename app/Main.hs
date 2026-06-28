@@ -1,9 +1,9 @@
 module Main where
 
-import Algorithm.Error (AlgorithmError (..))
-import Algorithm.Log (DescribeLogEntry (..))
+import Output.Log (DescribeLogEntry (..))
 import Algorithm.Spec
   ( SomeAlgorithmSpec (..),
+    requirePathTarget,
     resolveAlgorithm,
     validatePathTarget,
   )
@@ -46,13 +46,7 @@ execute opts = runExceptT $ do
     Left err ->
       except (Left (AppAlgorithm err))
     Right (SomePathAlgorithmSpec pathSpec) -> do
-      target <-
-        except
-          ( maybe
-              (Left (AppAlgorithm MissingPathTarget))
-              Right
-              (optTarget opts)
-          )
+      target <- except (first AppAlgorithm (requirePathTarget (optTarget opts)))
       let prc =
             mkPathRunConfig
               graph
@@ -60,6 +54,7 @@ execute opts = runExceptT $ do
               target
               (optThreads opts)
               (psMaxSupersteps pathSpec (nodeCount graph))
+              (optVerbose opts)
       pregelRun <- exceptTWith AppPregel =<< liftIO (runPathPregel prc pathSpec)
       pure (buildOutput opts graph pregelRun)
     Right (SomeGlobalAlgorithmSpec globalSpec) -> do
@@ -69,6 +64,7 @@ execute opts = runExceptT $ do
               (optSource opts)
               (optThreads opts)
               (globalMaxSupersteps globalSpec (nodeCount graph))
+              (optVerbose opts)
       pregelRun <- exceptTWith AppPregel =<< liftIO (runGlobalPregel cfg globalSpec)
       pure (buildOutput opts graph pregelRun)
 

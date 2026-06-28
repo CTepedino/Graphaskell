@@ -6,24 +6,24 @@ module Algorithm.Common
     extractLabelResult,
     reconstructPath,
     runVertexUpdate,
-    stepResult,
+    labelVertexUpdate,
     bfsCandidates,
     tryImproveDistance,
     tryRelabel,
     labelsFromMessages,
     labelBootstrap,
+    labelInitState,
     emitLabelMessages,
+    emitDistanceMessages,
     minimumWithSelf,
     pathInitState,
     pathBootstrap,
-    pathMaxSupersteps,
-    labelMaxSupersteps,
+    atLeastOneSuperstep,
     pageRankMaxSupersteps,
   )
 where
 
 import Algorithm.Error (AlgorithmError (..))
-import Algorithm.Log (MessageLog (..))
 import Algorithm.Messages (DistanceMsg (..), LabelMsg (..))
 import Algorithm.Result (Result (..))
 import Algorithm.State
@@ -116,40 +116,18 @@ reconstructPath states target source = go target []
             Nothing -> []
 
 runVertexUpdate ::
-  MessageLog msg log =>
   VertexContext ->
   state ->
   [msg] ->
   ([msg] -> state -> Maybe state) ->
   (VertexContext -> state -> [(NodeId, msg)]) ->
-  (NodeId -> state -> state -> [(NodeId, msg)] -> [log]) ->
-  VertexStepResult state msg log
-runVertexUpdate vtx state messages update emit observe =
-  let nodeId = vcNodeId vtx
-   in case update messages state of
-        Nothing ->
-          stepResult nodeId state [] (observe nodeId state state [])
-        Just newState ->
-          let outgoing = emit vtx newState
-           in stepResult nodeId newState outgoing (observe nodeId state newState outgoing)
-
-stepResult ::
-  MessageLog msg log =>
-  NodeId ->
-  state ->
-  [(NodeId, msg)] ->
-  [log] ->
-  VertexStepResult state msg log
-stepResult nodeId newState outgoing logs =
-  let sentLogs =
-        [ messageSentLog nodeId to msg
-          | (to, msg) <- outgoing
-        ]
-   in VertexStepResult
-        { vsrState = newState,
-          vsrOutgoing = outgoing,
-          vsrLogs = logs ++ sentLogs
-        }
+  VertexStepResult state msg
+runVertexUpdate vtx state messages update emit =
+  case update messages state of
+    Nothing ->
+      VertexStepResult state []
+    Just newState ->
+      VertexStepResult newState (emit vtx newState)
 
 bfsCandidates :: [DistanceMsg] -> [(Int, NodeId)]
 bfsCandidates messages =
@@ -208,6 +186,37 @@ emitLabelMessages vtx state =
     | to <- outNeighbors vtx
   ]
 
+emitDistanceMessages ::
+  (VertexContext -> [NodeId]) ->
+  VertexContext ->
+  PathState ->
+  [(NodeId, DistanceMsg)]
+emitDistanceMessages outTargets vtx state =
+  case psDistance state of
+    Nothing -> []
+    Just dist ->
+      [ (to, DistanceMsg (vcNodeId vtx) dist)
+        | to <- outTargets vtx
+      ]
+
+labelInitState :: NodeId -> RunConfig -> LabelState
+labelInitState nodeId _cfg =
+  LabelState nodeId
+
+labelVertexUpdate ::
+  (NodeId -> [LabelMsg] -> LabelState -> Maybe LabelState) ->
+  VertexContext ->
+  LabelState ->
+  [LabelMsg] ->
+  VertexStepResult LabelState LabelMsg
+labelVertexUpdate update vtx state messages =
+  runVertexUpdate
+    vtx
+    state
+    messages
+    (update (vcNodeId vtx))
+    emitLabelMessages
+
 pathInitState :: NodeId -> PathRunConfig -> PathState
 pathInitState nodeId cfg
   | nodeId == prcSource cfg =
@@ -222,11 +231,8 @@ pathBootstrap acceptWeight cfg =
       acceptWeight weight
   ]
 
-pathMaxSupersteps :: Int -> Int
-pathMaxSupersteps n = max 1 n
-
-labelMaxSupersteps :: Int -> Int
-labelMaxSupersteps n = max 1 n
+atLeastOneSuperstep :: Int -> Int
+atLeastOneSuperstep n = max 1 n
 
 pageRankMaxSupersteps :: Int -> Int
 pageRankMaxSupersteps n =

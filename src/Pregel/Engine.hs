@@ -12,6 +12,7 @@ import Algorithm.Types
     globalRunSpec,
     pathRunSpec,
   )
+import Algorithm.Log (MessageLog)
 import Control.Concurrent.STM (atomically)
 import qualified Data.Map.Strict as Map
 import Graph.Types
@@ -41,13 +42,18 @@ runPathPregel prc pathSpec =
   runConcurrent (pathRunConfigToRunConfig prc) (pathRunSpec pathSpec prc)
 
 runGlobalPregel ::
+  MessageLog msg log =>
   RunConfig ->
   GlobalAlgorithmSpec state msg log ->
   IO (Either PregelError (PregelRun log))
 runGlobalPregel cfg globalSpec =
   runConcurrent cfg (globalRunSpec globalSpec cfg)
 
-runConcurrent :: RunConfig -> AlgorithmSpec state msg log -> IO (Either PregelError (PregelRun log))
+runConcurrent ::
+  MessageLog msg log =>
+  RunConfig ->
+  AlgorithmSpec state msg log ->
+  IO (Either PregelError (PregelRun log))
 runConcurrent cfg spec = do
   let graph = rcGraph cfg
       contexts = buildVertexContexts graph
@@ -76,6 +82,7 @@ runConcurrent cfg spec = do
               }
 
 loopConcurrent ::
+  MessageLog msg log =>
   RunConfig ->
   AlgorithmSpec state msg log ->
   VertexContexts ->
@@ -104,7 +111,7 @@ loopConcurrent cfg spec contexts step states env
               let messageMap = Map.fromList (zip actives messagesList)
                   messageFor nodeId =
                     Map.findWithDefault [] nodeId messageMap
-              case processActiveVertices spec contexts states messageFor actives of
+              case processActiveVertices (rcTrace cfg) spec contexts states messageFor actives of
                 Left err ->
                   pure (Left err)
                 Right superstepResult -> do

@@ -4,17 +4,16 @@ module Algorithm.BellmanFord
 where
 
 import Algorithm.Common
-  ( extractPathResult,
+  ( atLeastOneSuperstep,
+    emitDistanceMessages,
+    extractPathResult,
     pathBootstrap,
     pathInitState,
-    pathMaxSupersteps,
     runVertexUpdate,
     tryImproveDistance,
   )
-import Algorithm.Log (PathLogEntry)
 import Algorithm.Messages (DistanceMsg (..))
-import Algorithm.Observability (pathObserver)
-import Algorithm.State (PathState (..), emptyPathState)
+import Algorithm.State (PathState, emptyPathState)
 import Algorithm.Types (PathAlgorithmSpec (..))
 import Data.Maybe (isJust, mapMaybe)
 import Graph.Types (NodeId)
@@ -25,8 +24,6 @@ import Graph.VertexContext
   )
 import Pregel.Types
 
-type BellmanFordLog = PathLogEntry DistanceMsg
-
 bellmanFordPathSpec :: PathAlgorithmSpec
 bellmanFordPathSpec =
   PathAlgorithmSpec
@@ -35,22 +32,21 @@ bellmanFordPathSpec =
       psBootstrap = pathBootstrap isJust,
       psVertexUpdate = vertexUpdate,
       psExtractResult = extractPathResult,
-      psMaxSupersteps = pathMaxSupersteps
+      psMaxSupersteps = atLeastOneSuperstep
     }
 
 vertexUpdate ::
   VertexContext ->
   PathState ->
   [DistanceMsg] ->
-  VertexStepResult PathState DistanceMsg BellmanFordLog
+  VertexStepResult PathState DistanceMsg
 vertexUpdate vtx state messages =
   runVertexUpdate
     vtx
     state
     messages
     (bellmanFordUpdate vtx)
-    emitOutgoing
-    pathObserver
+    (emitDistanceMessages weightedOutNeighbors)
 
 bellmanFordUpdate :: VertexContext -> [DistanceMsg] -> PathState -> Maybe PathState
 bellmanFordUpdate vtx messages =
@@ -63,12 +59,3 @@ weightedCandidate vtx message =
   fmap
     (\weight -> (dmDistance message + weight, dmFrom message))
     (lookupIncomingWeight vtx (dmFrom message))
-
-emitOutgoing :: VertexContext -> PathState -> [(NodeId, DistanceMsg)]
-emitOutgoing vtx state =
-  case psDistance state of
-    Nothing -> []
-    Just dist ->
-      [ (to, DistanceMsg (vcNodeId vtx) dist)
-        | to <- weightedOutNeighbors vtx
-      ]

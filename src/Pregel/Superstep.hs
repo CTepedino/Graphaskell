@@ -10,6 +10,7 @@ module Pregel.Superstep
   )
 where
 
+import Algorithm.Log (MessageLog (..), messageSentLogs)
 import Algorithm.Types (AlgorithmSpec (..))
 import qualified Data.Map.Strict as Map
 import Graph.Types (Graph, NodeId, graphNodes)
@@ -30,11 +31,22 @@ applyVertexUpdate ::
   VertexStates state ->
   NodeId ->
   [msg] ->
-  Maybe (VertexStepResult state msg log)
+  Maybe (VertexStepResult state msg)
 applyVertexUpdate spec contexts states nodeId messages = do
   vtx <- Map.lookup nodeId contexts
   let state = Map.findWithDefault (specDefaultState spec) nodeId states
   pure (specVertexUpdate spec vtx state messages)
+
+collectVertexLogs ::
+  MessageLog msg log =>
+  AlgorithmSpec state msg log ->
+  NodeId ->
+  state ->
+  VertexStepResult state msg ->
+  [log]
+collectVertexLogs spec nodeId oldState result =
+  specObserveStep spec nodeId oldState (vsrState result) (vsrOutgoing result)
+    ++ messageSentLogs nodeId (vsrOutgoing result)
 
 activeVerticesWithMessages :: MessageQueues msg -> [NodeId]
 activeVerticesWithMessages =
@@ -66,13 +78,15 @@ initialVertexStates spec cfg graph =
     ]
 
 processActiveVertices ::
+  MessageLog msg log =>
+  Bool ->
   AlgorithmSpec state msg log ->
   VertexContexts ->
   VertexStates state ->
   (NodeId -> [msg]) ->
   [NodeId] ->
   Either PregelError (SuperstepResult state msg log)
-processActiveVertices spec contexts states messageFor actives =
+processActiveVertices tracing spec contexts states messageFor actives =
   case mapM processOne actives of
     Left err ->
       Left err
@@ -83,11 +97,11 @@ processActiveVertices spec contexts states messageFor actives =
               mergeUpdatedStates
                 states
                 [ (nodeId, vsrState result)
-                  | (nodeId, result) <- outcomes
+                  | (nodeId, result, _) <- outcomes
                 ],
             ssOutgoing =
-              concatMap (vsrOutgoing . snd) outcomes,
-            ssEntries = concatMap (vsrLogs . snd) outcomes
+              concatMap (vsrOutgoing . (\(_, result, _) -> result)) outcomes,
+            ssEntries = concatMap (\(_, _, logs) -> logs) outcomes
           }
   where
     processOne nodeId =
@@ -95,7 +109,12 @@ processActiveVertices spec contexts states messageFor actives =
         Nothing ->
           Left (MissingVertexContext nodeId)
         Just result ->
-          Right (nodeId, result)
+          let oldState = Map.findWithDefault (specDefaultState spec) nodeId states
+              logs =
+                if tracing
+                  then collectVertexLogs spec nodeId oldState result
+                  else []
+           in Right (nodeId, result, logs)
 
 mkSuperstepLog ::
   Int ->

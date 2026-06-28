@@ -76,6 +76,7 @@ prop_sequentialDeterministic =
                 0
                 1
                 (globalMaxSupersteps globalSpec (nodeCount graph))
+                False
             first = requireRight (runGlobalSequential cfg globalSpec)
             second = requireRight (runGlobalSequential cfg globalSpec)
          in prResult first === prResult second
@@ -118,6 +119,7 @@ deterministicCase AlgorithmCase {acAlgorithm, acGraphText, acSource, acTarget} =
                       target
                       1
                       (psMaxSupersteps pathSpec (nodeCount graph))
+                      False
                   first = requireRight (runPathSequential prc pathSpec)
                   second = requireRight (runPathSequential prc pathSpec)
                in prResult first == prResult second
@@ -128,6 +130,7 @@ deterministicCase AlgorithmCase {acAlgorithm, acGraphText, acSource, acTarget} =
                   acSource
                   1
                   (globalMaxSupersteps globalSpec (nodeCount graph))
+                  False
               first = requireRight (runGlobalSequential cfg globalSpec)
               second = requireRight (runGlobalSequential cfg globalSpec)
            in prResult first == prResult second
@@ -181,6 +184,7 @@ runBfsSequential graph source target =
                 target
                 1
                 (psMaxSupersteps bfsPathSpec (nodeCount graph))
+                False
             )
             bfsPathSpec
         )

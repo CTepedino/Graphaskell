@@ -3,12 +3,10 @@ module Algorithm.PageRank
   )
 where
 
-import Algorithm.Common (extractRankingsResult, pageRankMaxSupersteps, runVertexUpdate)
-import Algorithm.Log (RankLogEntry (..))
+import Algorithm.Common (extractRankingsResult, runVertexUpdate)
 import Algorithm.Messages (RankMsg (..))
-import Algorithm.Observability (rankObserver)
-import Algorithm.State (RankState (..), emptyRankState)
-import Algorithm.Types (GlobalAlgorithmSpec (..))
+import Algorithm.State (RankState (..))
+import Algorithm.Types (GlobalAlgorithmSpec, RankLog, mkRankGlobalSpec)
 import Graph.Types
 import Graph.VertexContext (VertexContext (..), outNeighbors, outDegree)
 import Pregel.Types
@@ -19,19 +17,9 @@ damping = 0.85
 rankEpsilon :: Double
 rankEpsilon = 1e-9
 
-type PageRankLog = RankLogEntry RankMsg
-
-pageRankGlobalSpec :: GlobalAlgorithmSpec RankState RankMsg PageRankLog
+pageRankGlobalSpec :: GlobalAlgorithmSpec RankState RankMsg RankLog
 pageRankGlobalSpec =
-  GlobalAlgorithmSpec
-    { globalInitState = initState,
-      globalDefaultState = emptyRankState,
-      globalBootstrap = bootstrap,
-      globalVertexUpdate = vertexUpdate,
-      globalExtractResult = extractRankingsResult,
-      globalMaxSupersteps = pageRankMaxSupersteps,
-      globalObserveStep = rankObserver
-    }
+  mkRankGlobalSpec initState bootstrap vertexUpdate extractRankingsResult
 
 initState :: NodeId -> RunConfig -> RankState
 initState _nodeId cfg =
@@ -54,7 +42,7 @@ vertexUpdate ::
   VertexContext ->
   RankState ->
   [RankMsg] ->
-  VertexStepResult RankState RankMsg PageRankLog
+  VertexStepResult RankState RankMsg
 vertexUpdate vtx state messages =
   let n = fromIntegral (vcNodeCount vtx)
       nodeId = vcNodeId vtx
@@ -64,7 +52,6 @@ vertexUpdate vtx state messages =
         messages
         (pageRankUpdate n nodeId)
         emitOutgoing
-        rankObserver
 
 pageRankUpdate :: Double -> NodeId -> [RankMsg] -> RankState -> Maybe RankState
 pageRankUpdate n _nodeId messages state =

@@ -15,7 +15,7 @@ import Fixtures
   )
 import Graph.Types (Algorithm (..))
 import Pregel.Error (PregelError (..))
-import Pregel.Types (somePregelResult)
+import Output.Run (somePregelResult)
 import Test.HUnit
 import TestSupport
   ( assertEnginesAgreeSome,

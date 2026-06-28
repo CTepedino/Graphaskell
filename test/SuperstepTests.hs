@@ -32,7 +32,8 @@ superstepTests =
                   prcSource = 0,
                   prcTarget = 2,
                   prcThreads = 1,
-                  prcMaxSteps = 100
+                  prcMaxSteps = 100,
+                  prcTrace = True
                 }
             spec = pathRunSpec bfsPathSpec prc
             cfg = pathRunConfigToRunConfig prc
@@ -40,7 +41,7 @@ superstepTests =
             states = initialVertexStates spec cfg graph
             messageFor 1 = [DistanceMsg 0 0]
             messageFor _ = []
-        case processActiveVertices spec contexts states messageFor [1] of
+        case processActiveVertices True spec contexts states messageFor [1] of
           Right SuperstepResult {ssNewStates = newStates, ssOutgoing = outgoing, ssEntries = entries} -> do
             Map.lookup 1 newStates
               @?= Just (PathState (Just 1) (Just 0))
@@ -61,14 +62,15 @@ superstepTests =
                   prcSource = 0,
                   prcTarget = 1,
                   prcThreads = 1,
-                  prcMaxSteps = 100
+                  prcMaxSteps = 100,
+                  prcTrace = False
                 }
             spec = pathRunSpec bfsPathSpec prc
             cfg = pathRunConfigToRunConfig prc
             contexts = buildVertexContexts graph
             states = initialVertexStates spec cfg graph
             messageFor _ = []
-        case processActiveVertices spec contexts states messageFor [1] of
+        case processActiveVertices False spec contexts states messageFor [1] of
           Right SuperstepResult {ssNewStates = newStates, ssOutgoing = outgoing, ssEntries = entries} -> do
             Map.lookup 1 newStates @?= Just emptyPathState
             outgoing @?= []

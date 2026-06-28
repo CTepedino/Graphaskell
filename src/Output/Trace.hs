@@ -3,8 +3,8 @@ module Output.Trace
   )
 where
 
-import Algorithm.Log (DescribeLogEntry (..))
-import Algorithm.Result (describeResult)
+import Output.Log (DescribeLogEntry (..))
+import Output.Result (describeResult)
 import Data.List (sortBy)
 import Data.Ord (comparing)
 import Pregel.Types

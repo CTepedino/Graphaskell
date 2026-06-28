@@ -19,7 +19,8 @@ import Graph.ParseError (ParseError)
 import Graph.Parser (parseGraphFile)
 import Graph.Types (Algorithm (..), Graph, NodeId, nodeCount)
 import Pregel.Error (PregelError (..))
-import Pregel.Types (PathRunConfig (..), RunConfig (..), SomePregelRun (..), mkPathRunConfig, mkRunConfig)
+import Output.Run (SomePregelRun (..))
+import Pregel.Types (PathRunConfig (..), RunConfig (..), mkPathRunConfig, mkRunConfig)
 import SequentialEngine (runGlobalSequential, runPathSequential)
 
 simpleGraphText :: String
@@ -135,6 +136,7 @@ mkPathRunConfigFor pathSpec graph source target threads =
     target
     threads
     (psMaxSupersteps pathSpec (nodeCount graph))
+    False
 
 mkGlobalRunConfigFor ::
   GlobalAlgorithmSpec state msg log ->
@@ -148,3 +150,4 @@ mkGlobalRunConfigFor globalSpec graph source threads =
     source
     threads
     (globalMaxSupersteps globalSpec (nodeCount graph))
+    False
