@@ -13,7 +13,7 @@ import Algorithm.Observability (pathObserver)
 import Algorithm.Result (Result (..))
 import Algorithm.State (PathState (..), emptyPathState)
 import qualified Data.Map.Strict as Map
-import Graph.Types (Distance (..), Edge (..), GraphEndpoint (..), GraphError (..), NodeId (..), ValidGraph, buildGraph)
+import Graph.Types (Distance (..), Edge (..), GraphEndpoint (..), GraphError (..), NodeId (..), ValidGraph, buildGraph, defaultEdgeWeight)
 import Pregel.Types (RunConfig (..))
 import Test.HUnit
 
@@ -72,7 +72,7 @@ commonTests =
             states = Map.singleton (NodeId 0) (PathState (Just (Distance 0)) Nothing)
         extractPathResult states cfg @?= Left (TargetNodeMissing (NodeId 99)),
       "buildGraph rejects out-of-range edge endpoints" ~:
-        buildGraph 3 [Edge (NodeId 0) (NodeId 5) Nothing]
+        buildGraph 3 [Edge (NodeId 0) (NodeId 5) defaultEdgeWeight]
           @?= Left (GraphBuildInvalidNodeId EdgeTo (NodeId 5) 2),
       "buildGraph rejects non-positive node counts" ~:
         buildGraph 0 [] @?= Left (GraphBuildInvalidNodeCount 0)
@@ -83,8 +83,8 @@ sampleGraph =
   case
     buildGraph
       3
-      [ Edge (NodeId 0) (NodeId 1) Nothing,
-        Edge (NodeId 1) (NodeId 2) Nothing
+      [ Edge (NodeId 0) (NodeId 1) defaultEdgeWeight,
+        Edge (NodeId 1) (NodeId 2) defaultEdgeWeight
       ]
   of
     Right graph -> graph

@@ -1,6 +1,5 @@
 module Algorithm.Common
-  ( validateWeightedGraph,
-    extractPathResult,
+  ( extractPathResult,
     extractComponentResult,
     extractRankingsResult,
     extractLabelResult,
@@ -34,22 +33,12 @@ import Algorithm.State
     emptyPathState,
   )
 import Data.List (minimumBy, sort)
-import Data.Maybe (isJust)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import Data.Ord (comparing)
 import Graph.Types
 import Graph.VertexContext (VertexContext, outNeighbors, vcNodeId)
 import Pregel.Types (RunConfig (..), VertexStepResult (..))
-
-validateWeightedGraph :: ValidGraph -> Either AlgorithmError ()
-validateWeightedGraph graph
-  | null (graphEdges graph) =
-      Left WeightedGraphRequired
-  | all (isJust . edgeWeight) (graphEdges graph) =
-      Right ()
-  | otherwise =
-      Left WeightedGraphRequired
 
 extractPathResult :: Map NodeId PathState -> RunConfig -> Either AlgorithmError Result
 extractPathResult states cfg =
@@ -247,15 +236,14 @@ pathInitState nodeId cfg =
     _ ->
       emptyPathState
 
-pathBootstrap :: (Maybe Weight -> Bool) -> RunConfig -> [(NodeId, DistanceMsg)]
-pathBootstrap acceptWeight cfg =
+pathBootstrap :: RunConfig -> [(NodeId, DistanceMsg)]
+pathBootstrap cfg =
   case rcSource cfg of
     Nothing ->
       []
     Just source ->
       [ (to, DistanceMsg source zeroDistance)
-        | (to, weight) <- neighbors (rcGraph cfg) source,
-          acceptWeight weight
+        | (to, _) <- neighbors (rcGraph cfg) source
       ]
 
 atLeastOneSuperstep :: Int -> Int

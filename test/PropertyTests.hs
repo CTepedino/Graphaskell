@@ -6,7 +6,7 @@ import Algorithm.Common (reconstructPath, tryImproveDistance, tryRelabel)
 import Algorithm.LabelPropagation (labelPropagationSpec, labelPropagationStable)
 import Algorithm.PageRank (pageRankSpec)
 import Algorithm.Result (Result (..))
-import Algorithm.Spec (SomeAlgorithmSpec (..))
+import Algorithm.Spec (SomeAlgorithmSpec (..), resolveAlgorithm)
 import Algorithm.State (LabelState (..), PathState (..), emptyPathState)
 import Algorithm.Types (AlgorithmSpec (..))
 import Data.List (nub, nubBy)
@@ -15,7 +15,6 @@ import Fixtures
   ( disconnectedGraphText,
     pageRankGraphText,
     parseFixtureEither,
-    resolveFixtureEither,
     simpleGraphText,
     weightedGraphText,
   )
@@ -28,6 +27,7 @@ import Graph.Types
     ValidGraph,
     Weight (..),
     buildGraph,
+    defaultEdgeWeight,
     nodeCount,
     unDistance,
   )
@@ -106,8 +106,8 @@ prop_sequentialDeterministic :: Property
 prop_sequentialDeterministic =
   case parseFixtureEither simpleGraphText of
     Right graph ->
-      case resolveFixtureEither ConnectedComponents graph of
-        Right (SomeAlgorithmSpec spec) ->
+      case resolveAlgorithm ConnectedComponents of
+        SomeAlgorithmSpec spec ->
           property $
             let cfg =
                   mkRunConfig
@@ -122,8 +122,6 @@ prop_sequentialDeterministic =
                     prResult first === prResult second
                   _ ->
                     property False
-        _ ->
-          property False
     _ ->
       property False
 
@@ -153,8 +151,8 @@ deterministicCase :: AlgorithmCase -> Bool
 deterministicCase AlgorithmCase {acAlgorithm, acGraphText, acSource, acTarget, acThreads} =
   case parseFixtureEither acGraphText of
     Right graph ->
-      case resolveFixtureEither acAlgorithm graph of
-        Right (SomeAlgorithmSpec spec) ->
+      case resolveAlgorithm acAlgorithm of
+        SomeAlgorithmSpec spec ->
           let cfg =
                 mkRunConfig
                   graph
@@ -168,8 +166,6 @@ deterministicCase AlgorithmCase {acAlgorithm, acGraphText, acSource, acTarget, a
                   prResult first == prResult second
                 _ ->
                   False
-        _ ->
-          False
     _ ->
       False
 
@@ -194,7 +190,7 @@ genReachableGraphCandidate = do
       pure (from, to)
   let spine = zip [0 .. nodeTotal - 2] [1 .. nodeTotal - 1]
       pairs = nub (spine ++ [(from, to) | (from, to) <- extras, from /= to])
-      edges = [Edge (NodeId from) (NodeId to) Nothing | (from, to) <- pairs]
+      edges = [Edge (NodeId from) (NodeId to) defaultEdgeWeight | (from, to) <- pairs]
   pure $
     case buildGraph nodeTotal edges of
       Right graph ->
@@ -231,7 +227,7 @@ genWeightedReachableGraphCandidate = do
                  ]
           )
       edges =
-        [ Edge (NodeId from) (NodeId to) (Just (Weight weight))
+        [ Edge (NodeId from) (NodeId to) (Weight weight)
           | (from, to, weight) <- pairs
         ]
   pure $
@@ -399,8 +395,8 @@ enginesAgreeCase :: AlgorithmCase -> IO Bool
 enginesAgreeCase AlgorithmCase {acAlgorithm, acGraphText, acSource, acTarget, acThreads} =
   case parseFixtureEither acGraphText of
     Right graph ->
-      case resolveFixtureEither acAlgorithm graph of
-        Right (SomeAlgorithmSpec spec) ->
+      case resolveAlgorithm acAlgorithm of
+        SomeAlgorithmSpec spec ->
           enginesAgree
             ( mkRunConfig
                 graph
@@ -411,8 +407,6 @@ enginesAgreeCase AlgorithmCase {acAlgorithm, acGraphText, acSource, acTarget, ac
                 False
             )
             spec
-        _ ->
-          pure False
     _ ->
       pure False
 
@@ -519,24 +513,14 @@ prop_parsedNodeCountMatchesDirective =
 prop_maxSuperstepsPositive :: Property
 prop_maxSuperstepsPositive =
   forAll (choose (1, 100)) $ \nodeTotal ->
-    case parseFixtureEither simpleGraphText of
-      Right simple ->
-        case parseFixtureEither weightedGraphText of
-          Right weighted ->
-            all
-              (positiveMaxSupersteps nodeTotal)
-              [ resolveFixtureEither BFS simple,
-                resolveFixtureEither BellmanFord weighted,
-                resolveFixtureEither PageRank simple,
-                resolveFixtureEither ConnectedComponents simple,
-                resolveFixtureEither LabelPropagation simple
-              ]
-          _ ->
-            False
-      _ ->
-        False
+    all
+      (positiveMaxSupersteps nodeTotal)
+      [ resolveAlgorithm BFS,
+        resolveAlgorithm BellmanFord,
+        resolveAlgorithm PageRank,
+        resolveAlgorithm ConnectedComponents,
+        resolveAlgorithm LabelPropagation
+      ]
   where
-    positiveMaxSupersteps nodeTotal (Right (SomeAlgorithmSpec spec)) =
+    positiveMaxSupersteps nodeTotal (SomeAlgorithmSpec spec) =
       specMaxSupersteps spec nodeTotal > 0
-    positiveMaxSupersteps _ _ =
-      False

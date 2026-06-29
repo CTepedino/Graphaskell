@@ -6,14 +6,11 @@ module Fixtures
     pageRankGraphText,
     parseFixtureEither,
     parseFixture,
-    resolveFixture,
-    resolveFixtureEither,
     runFixture,
     runFixtureEither,
   )
 where
 
-import Algorithm.Error (AlgorithmError)
 import Algorithm.Spec (SomeAlgorithmSpec (..), resolveAlgorithm)
 import Algorithm.Types (AlgorithmSpec (..))
 import Graph.ParseError (ParseError)
@@ -27,7 +24,6 @@ import SequentialEngine (runPregelSequential)
 
 data FixtureError
   = FixtureParse ParseError
-  | FixtureResolve AlgorithmError
   | FixtureRun PregelError
   deriving (Eq, Show)
 
@@ -87,17 +83,6 @@ parseFixture text =
     first f (Left err) = Left (f err)
     first _ (Right value) = Right value
 
-resolveFixtureEither :: Algorithm -> ValidGraph -> Either AlgorithmError SomeAlgorithmSpec
-resolveFixtureEither algorithm graph =
-  resolveAlgorithm graph algorithm
-
-resolveFixture :: Algorithm -> ValidGraph -> Either FixtureError SomeAlgorithmSpec
-resolveFixture algorithm graph =
-  first FixtureResolve (resolveAlgorithm graph algorithm)
-  where
-    first f (Left err) = Left (f err)
-    first _ (Right value) = Right value
-
 runFixtureEither ::
   Algorithm ->
   NodeId ->
@@ -106,9 +91,10 @@ runFixtureEither ::
   Either FixtureError SomePregelRun
 runFixtureEither algorithm source target text = do
   graph <- parseFixture text
-  SomeAlgorithmSpec spec <- resolveFixture algorithm graph
-  run <- first FixtureRun (runPregelSequential (mkRunConfigFor spec graph source target 1) spec)
-  pure (SomePregelRun run)
+  case resolveAlgorithm algorithm of
+    SomeAlgorithmSpec spec -> do
+      run <- first FixtureRun (runPregelSequential (mkRunConfigFor spec graph source target 1) spec)
+      pure (SomePregelRun run)
   where
     first f (Left err) = Left (f err)
     first _ (Right value) = Right value

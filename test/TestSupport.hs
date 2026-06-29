@@ -256,17 +256,13 @@ shortestWeightedDistance graph source target
                           rest
                           (neighbors graph node)
                    in go rest' visited'
-    insertNeighbor _from dist (to, maybeWeight) acc =
-      case maybeWeight of
-        Nothing ->
-          acc
-        Just weight ->
-          let candidate = distancePlusWeight dist weight
-           in case Map.lookup to acc of
-                Just current | candidate >= current ->
-                  acc
-                _ ->
-                  Map.insert to candidate acc
+    insertNeighbor _from dist (to, weight) acc =
+      let candidate = distancePlusWeight dist weight
+       in case Map.lookup to acc of
+            Just current | candidate >= current ->
+              acc
+            _ ->
+              Map.insert to candidate acc
 
 examplesGraphPaths :: [FilePath]
 examplesGraphPaths =

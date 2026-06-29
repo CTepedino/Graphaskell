@@ -23,7 +23,7 @@ import Graph.Types
     ValidGraph,
     Weight (..),
     buildGraph,
-    edgeWeight,
+    defaultEdgeWeight,
     graphEdges,
     graphNodes,
     isValidNode,
@@ -136,7 +136,7 @@ parseEdgeLine st ws
           from <- parseNodeId CtxEdgeFrom fromStr
           to <- parseNodeId CtxEdgeTo toStr
           weight <- parseWeight CtxEdgeWeight weightStr
-          let edge = Edge from to (Just weight)
+          let edge = Edge from to weight
           Right st {psEdges = edge : psEdges st}
         _ -> Left InvalidWeightedEdge
   | otherwise =
@@ -144,7 +144,7 @@ parseEdgeLine st ws
         [fromStr, toStr] -> do
           from <- parseNodeId CtxEdgeFrom fromStr
           to <- parseNodeId CtxEdgeTo toStr
-          let edge = Edge from to Nothing
+          let edge = Edge from to defaultEdgeWeight
           Right st {psEdges = edge : psEdges st}
         [_, _, _] ->
           Left (WeightOnUnweightedGraph (unwords ws))
@@ -158,10 +158,7 @@ finalize st = do
     then Left NoEdges
     else do
       let edges = reverse (psEdges st)
-      graph <- firstGraphError (buildGraph nodeTotal edges)
-      if psWeighted st && any (== Nothing) (map edgeWeight edges)
-        then Left WeightedModeMismatch
-        else pure graph
+      firstGraphError (buildGraph nodeTotal edges)
 
 firstGraphError :: Either GraphError ValidGraph -> Either ParseError ValidGraph
 firstGraphError (Left err) =
@@ -222,5 +219,6 @@ adjSummary graph =
             ++ if null nbs
               then "[]"
               else unwords (map formatNeighbor nbs)
-    formatNeighbor (to, Nothing) = show to
-    formatNeighbor (to, Just weight) = show to ++ "(" ++ show weight ++ ")"
+    formatNeighbor (to, weight)
+      | weight == defaultEdgeWeight = show to
+      | otherwise = show to ++ "(" ++ show weight ++ ")"
