@@ -12,7 +12,6 @@ import Algorithm.Name (Algorithm (..))
 import Util.Reading (readNonNegativeInt)
 import Graph.Types (NodeId (..))
 import Options.Applicative
-import System.Exit (die)
 
 data Options = Options
   { optThreads :: Int,
@@ -121,7 +120,7 @@ rawParser =
           <> help "Detailed per-superstep traces (messages and updates)"
       )
 
-parseOptions :: IO Options
+parseOptions :: IO (Either CliError Options)
 parseOptions = do
   maxThreads <- getNumCapabilities
   (graphPath, source, target, algorithm, mThreads, verbose) <-
@@ -135,17 +134,19 @@ parseOptions = do
                 \ are specified via CLI flags."
           )
       )
-  threads <-
-    case validateThreads maxThreads (maybe maxThreads id mThreads) of
-      Left err -> die (displayCliError err)
-      Right threadCount -> pure threadCount
-  pure
-    Options
-      { optThreads = threads,
-        optGraphPath = graphPath,
-        optSource = source,
-        optTarget = target,
-        optAlgorithm = algorithm,
-        optMaxCapabilities = maxThreads,
-        optVerbose = verbose
-      }
+  case validateThreads maxThreads (maybe maxThreads id mThreads) of
+    Left err ->
+      pure (Left err)
+    Right threadCount ->
+      pure
+        ( Right
+            Options
+              { optThreads = threadCount,
+                optGraphPath = graphPath,
+                optSource = source,
+                optTarget = target,
+                optAlgorithm = algorithm,
+                optMaxCapabilities = maxThreads,
+                optVerbose = verbose
+              }
+        )

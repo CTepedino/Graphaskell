@@ -26,18 +26,18 @@ import System.Exit (die)
 
 main :: IO ()
 main = do
-  opts <- parseOptions
-  run opts
-
-run :: Options -> IO ()
-run opts = do
-  result <- execute opts
+  result <- runApp
   case result of
     Left err -> die (displayAppError err)
     Right outputLines -> mapM_ putStrLn outputLines
 
-execute :: Options -> IO (Either AppError [String])
-execute opts = runExceptT $ do
+runApp :: IO (Either AppError [String])
+runApp = runExceptT $ do
+  opts <- exceptTWith AppCli =<< liftIO parseOptions
+  execute opts
+
+execute :: Options -> ExceptT AppError IO [String]
+execute opts = do
   except (first AppAlgorithm (validatePathTarget (optAlgorithm opts) (optTarget opts)))
   except (first AppAlgorithm (validatePathSource (optAlgorithm opts) (optSource opts)))
   graph <-
