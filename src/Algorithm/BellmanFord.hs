@@ -16,12 +16,12 @@ import Algorithm.Messages (DistanceMsg (..))
 import Algorithm.Observability (pathObserver)
 import Algorithm.State (PathState, emptyPathState)
 import Algorithm.Types (AlgorithmSpec (..), PathLog)
-import Data.Maybe (isJust, mapMaybe)
+import Data.Maybe (mapMaybe)
 import Graph.Types (Distance, NodeId, distancePlusWeight)
 import Graph.VertexContext
   ( VertexContext (..),
     lookupIncomingWeight,
-    weightedOutNeighbors,
+    outNeighbors,
   )
 import Pregel.Types
 
@@ -30,7 +30,7 @@ bellmanFordSpec =
   AlgorithmSpec
     { specInitState = pathInitState,
       specDefaultState = emptyPathState,
-      specBootstrap = pathBootstrap isJust,
+      specBootstrap = pathBootstrap,
       specVertexUpdate = vertexUpdate,
       specExtractResult = extractPathResult,
       specMaxSupersteps = atLeastOneSuperstep,
@@ -48,7 +48,7 @@ vertexUpdate vtx state messages =
     state
     messages
     (bellmanFordUpdate vtx)
-    (emitDistanceMessages weightedOutNeighbors)
+    (emitDistanceMessages outNeighbors)
 
 bellmanFordUpdate :: VertexContext -> [DistanceMsg] -> PathState -> Maybe PathState
 bellmanFordUpdate vtx messages =

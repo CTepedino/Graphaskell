@@ -6,6 +6,7 @@ module Graph.Types
     ValidGraph,
     GraphError (..),
     GraphEndpoint (..),
+    defaultEdgeWeight,
     nodeCount,
     graphNodes,
     graphEdges,
@@ -48,17 +49,20 @@ succDistance (Distance d) = Distance (d + 1)
 distancePlusWeight :: Distance -> Weight -> Distance
 distancePlusWeight (Distance d) (Weight w) = Distance (d + w)
 
+defaultEdgeWeight :: Weight
+defaultEdgeWeight = Weight 1
+
 data Edge = Edge
   { edgeFrom :: NodeId,
     edgeTo :: NodeId,
-    edgeWeight :: Maybe Weight
+    edgeWeight :: Weight
   }
   deriving (Eq, Show)
 
 data Graph = Graph
   { gNodes :: [NodeId],
     gEdges :: [Edge],
-    gAdj :: Map NodeId [(NodeId, Maybe Weight)]
+    gAdj :: Map NodeId [(NodeId, Weight)]
   }
   deriving (Eq, Show)
 
@@ -87,7 +91,7 @@ graphEdges :: ValidGraph -> [Edge]
 graphEdges (ValidGraph Graph {gEdges = edges}) =
   edges
 
-neighbors :: ValidGraph -> NodeId -> [(NodeId, Maybe Weight)]
+neighbors :: ValidGraph -> NodeId -> [(NodeId, Weight)]
 neighbors (ValidGraph Graph {gAdj = adj}) nodeId =
   Map.findWithDefault [] nodeId adj
 

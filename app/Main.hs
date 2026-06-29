@@ -51,10 +51,8 @@ execute opts = runExceptT $ do
             (optTarget opts)
         )
     )
-  case resolveAlgorithm graph (optAlgorithm opts) of
-    Left err ->
-      except (Left (AppAlgorithm err))
-    Right (SomeAlgorithmSpec spec) -> do
+  case resolveAlgorithm (optAlgorithm opts) of
+    SomeAlgorithmSpec spec -> do
       let cfg =
             mkRunConfig
               graph

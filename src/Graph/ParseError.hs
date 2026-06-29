@@ -31,7 +31,6 @@ data ParseError
   | WeightOnUnweightedGraph String
   | InvalidUnweightedEdge
   | InvalidWeightedEdge
-  | WeightedModeMismatch
   deriving (Eq, Show)
 
 displayParseError :: ParseError -> String
@@ -60,8 +59,6 @@ displayParseError err =
       "Each edge must have the format: <from> <to>"
     InvalidWeightedEdge ->
       "In WEIGHTED mode each edge must have the format: <from> <to> <weight>"
-    WeightedModeMismatch ->
-      "WEIGHTED mode requires a weight on every edge"
 
 showContext :: ParseContext -> String
 showContext ctx =

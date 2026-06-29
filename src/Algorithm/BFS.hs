@@ -26,7 +26,7 @@ bfsSpec =
   AlgorithmSpec
     { specInitState = pathInitState,
       specDefaultState = emptyPathState,
-      specBootstrap = pathBootstrap (const True),
+      specBootstrap = pathBootstrap,
       specVertexUpdate = vertexUpdate,
       specExtractResult = extractPathResult,
       specMaxSupersteps = atLeastOneSuperstep,

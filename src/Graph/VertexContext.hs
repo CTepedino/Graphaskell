@@ -5,7 +5,6 @@ module Graph.VertexContext
     lookupIncomingWeight,
     outNeighbors,
     outDegree,
-    weightedOutNeighbors,
   )
 where
 
@@ -15,7 +14,7 @@ import Graph.Types
 
 data VertexContext = VertexContext
   { vcNodeId :: NodeId,
-    vcOutEdges :: [(NodeId, Maybe Weight)],
+    vcOutEdges :: [(NodeId, Weight)],
     vcInWeights :: Map NodeId Weight,
     vcNodeCount :: Int
   }
@@ -41,10 +40,9 @@ buildVertexContexts graph =
 incomingWeights :: ValidGraph -> NodeId -> Map NodeId Weight
 incomingWeights graph nodeId =
   Map.fromList
-    [ (edgeFrom edge, weight)
+    [ (edgeFrom edge, edgeWeight edge)
       | edge <- graphEdges graph,
-        edgeTo edge == nodeId,
-        Just weight <- [edgeWeight edge]
+        edgeTo edge == nodeId
     ]
 
 lookupIncomingWeight :: VertexContext -> NodeId -> Maybe Weight
@@ -56,9 +54,3 @@ outNeighbors vtx = map fst (vcOutEdges vtx)
 
 outDegree :: VertexContext -> Int
 outDegree vtx = length (vcOutEdges vtx)
-
-weightedOutNeighbors :: VertexContext -> [NodeId]
-weightedOutNeighbors vtx =
-  [ to
-    | (to, Just _) <- vcOutEdges vtx
-  ]

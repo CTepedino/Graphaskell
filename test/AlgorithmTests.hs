@@ -8,7 +8,6 @@ import Fixtures
     disconnectedGraphText,
     pageRankGraphText,
     parseFixture,
-    resolveFixture,
     runFixtureEither,
     simpleGraphText,
     weightedGraphText,
@@ -64,11 +63,6 @@ algorithmTests =
         validatePathSource PageRank Nothing @?= Right (),
       "validatePathTarget accepts PageRank without target" ~: do
         validatePathTarget PageRank Nothing @?= Right (),
-      "Bellman-Ford rejects unweighted graph" ~: do
-        graph <- requireFixture (parseFixture simpleGraphText)
-        case resolveAlgorithm graph BellmanFord of
-          Left WeightedGraphRequired -> pure ()
-          _ -> assertFailure "expected WeightedGraphRequired",
       "connected components list all groups in connected graph" ~: do
         someRun <-
           requireFixture (runFixtureEither ConnectedComponents (NodeId 0) Nothing simpleGraphText)
@@ -87,22 +81,17 @@ algorithmTests =
         somePregelResult someRun @?= NodeLabels labelPropagationExpected,
       "sequential and concurrent engines agree on BFS" ~: do
         graph <- requireFixture (parseFixture simpleGraphText)
-        someSpec <- requireFixture (resolveFixture BFS graph)
-        assertEnginesAgreeSome graph (Just (NodeId 0)) (Just (NodeId 4)) 4 someSpec,
+        assertEnginesAgreeSome graph (Just (NodeId 0)) (Just (NodeId 4)) 4 (resolveAlgorithm BFS),
       "sequential and concurrent engines agree on Bellman-Ford" ~: do
         graph <- requireFixture (parseFixture weightedGraphText)
-        someSpec <- requireFixture (resolveFixture BellmanFord graph)
-        assertEnginesAgreeSome graph (Just (NodeId 0)) (Just (NodeId 3)) 1 someSpec,
+        assertEnginesAgreeSome graph (Just (NodeId 0)) (Just (NodeId 3)) 1 (resolveAlgorithm BellmanFord),
       "sequential and concurrent engines agree on connected components" ~: do
         graph <- requireFixture (parseFixture disconnectedGraphText)
-        someSpec <- requireFixture (resolveFixture ConnectedComponents graph)
-        assertEnginesAgreeSome graph Nothing Nothing 2 someSpec,
+        assertEnginesAgreeSome graph Nothing Nothing 2 (resolveAlgorithm ConnectedComponents),
       "sequential and concurrent engines agree on PageRank" ~: do
         graph <- requireFixture (parseFixture pageRankGraphText)
-        someSpec <- requireFixture (resolveFixture PageRank graph)
-        assertEnginesAgreeSome graph Nothing Nothing 2 someSpec,
+        assertEnginesAgreeSome graph Nothing Nothing 2 (resolveAlgorithm PageRank),
       "sequential and concurrent engines agree on label propagation" ~: do
         graph <- requireFixture (parseFixture simpleGraphText)
-        someSpec <- requireFixture (resolveFixture LabelPropagation graph)
-        assertEnginesAgreeSome graph Nothing Nothing 2 someSpec
+        assertEnginesAgreeSome graph Nothing Nothing 2 (resolveAlgorithm LabelPropagation)
     ]

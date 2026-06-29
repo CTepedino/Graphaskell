@@ -5,7 +5,7 @@ import Algorithm.Log (PathLogEntry (..))
 import Algorithm.Messages (DistanceMsg (..))
 import Algorithm.State (PathState (..), emptyPathState)
 import qualified Data.Map.Strict as Map
-import Graph.Types (Distance (..), Edge (..), NodeId (..), ValidGraph, buildGraph, zeroDistance)
+import Graph.Types (Distance (..), Edge (..), NodeId (..), ValidGraph, buildGraph, defaultEdgeWeight, zeroDistance)
 import Graph.VertexContext (buildVertexContexts)
 import Pregel.Superstep
   ( SuperstepResult (..),
@@ -22,8 +22,8 @@ superstepTests =
         let graph =
               requireGraph
                 3
-                [ Edge (NodeId 0) (NodeId 1) Nothing,
-                  Edge (NodeId 1) (NodeId 2) Nothing
+                [ Edge (NodeId 0) (NodeId 1) defaultEdgeWeight,
+                  Edge (NodeId 1) (NodeId 2) defaultEdgeWeight
                 ]
             cfg =
               RunConfig
@@ -52,7 +52,7 @@ superstepTests =
         let graph =
               requireGraph
                 2
-                [ Edge (NodeId 0) (NodeId 1) Nothing
+                [ Edge (NodeId 0) (NodeId 1) defaultEdgeWeight
                 ]
             cfg =
               RunConfig

@@ -9,14 +9,13 @@ where
 
 import Algorithm.BFS (bfsSpec)
 import Algorithm.BellmanFord (bellmanFordSpec)
-import Algorithm.Common (validateWeightedGraph)
 import Algorithm.ConnectedComponents (connectedComponentsSpec)
 import Algorithm.Error (AlgorithmError (..))
 import Algorithm.LabelPropagation (labelPropagationSpec)
 import Algorithm.PageRank (pageRankSpec)
 import Algorithm.Types (SomeAlgorithmSpec (..))
 import Algorithm.Name (Algorithm (..))
-import Graph.Types (ValidGraph, NodeId (..))
+import Graph.Types (NodeId)
 
 requirePathTarget :: Maybe NodeId -> Either AlgorithmError NodeId
 requirePathTarget = maybe (Left MissingPathTarget) Right
@@ -40,13 +39,10 @@ validatePathTarget algo target
   | otherwise =
       Right ()
 
-resolveAlgorithm :: ValidGraph -> Algorithm -> Either AlgorithmError SomeAlgorithmSpec
-resolveAlgorithm _ BFS = Right (SomeAlgorithmSpec bfsSpec)
-resolveAlgorithm graph BellmanFord = do
-  validateWeightedGraph graph
-  pure (SomeAlgorithmSpec bellmanFordSpec)
-resolveAlgorithm _ PageRank = Right (SomeAlgorithmSpec pageRankSpec)
-resolveAlgorithm _ ConnectedComponents =
-  Right (SomeAlgorithmSpec connectedComponentsSpec)
-resolveAlgorithm _ LabelPropagation =
-  Right (SomeAlgorithmSpec labelPropagationSpec)
+resolveAlgorithm :: Algorithm -> SomeAlgorithmSpec
+resolveAlgorithm algo = case algo of
+  BFS -> SomeAlgorithmSpec bfsSpec
+  BellmanFord -> SomeAlgorithmSpec bellmanFordSpec
+  PageRank -> SomeAlgorithmSpec pageRankSpec
+  ConnectedComponents -> SomeAlgorithmSpec connectedComponentsSpec
+  LabelPropagation -> SomeAlgorithmSpec labelPropagationSpec

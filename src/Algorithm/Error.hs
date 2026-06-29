@@ -10,7 +10,6 @@ data AlgorithmError
   = MissingPathSource
   | MissingPathTarget
   | TargetNodeMissing NodeId
-  | WeightedGraphRequired
   deriving (Eq, Show)
 
 displayAlgorithmError :: AlgorithmError -> String
@@ -22,5 +21,3 @@ displayAlgorithmError err =
       "--target is required to compute a path (BFS and Bellman-Ford)"
     TargetNodeMissing nodeId ->
       "node " ++ show nodeId ++ " does not exist"
-    WeightedGraphRequired ->
-      "Bellman-Ford requires weighted edges (WEIGHTED directive in the graph file)"
