@@ -17,9 +17,8 @@ import Algorithm.Common
     pageRankMaxSupersteps,
   )
 import Algorithm.Error (AlgorithmError (..))
-import Algorithm.Log (LabelLogEntry (..), MessageLog, PathLogEntry (..), RankLogEntry (..))
+import Algorithm.Log (LabelLogEntry (..), MessageLog, PathLogEntry (..), RankLogEntry (..), DescribeLogEntry)
 import Algorithm.Messages (DistanceMsg, LabelMsg, RankMsg)
-import Output.Log (DescribeLogEntry)
 import Algorithm.Observability (labelObserver, rankObserver)
 import Algorithm.Result (Result)
 import Algorithm.State (LabelState, RankState, emptyLabelState, emptyRankState)

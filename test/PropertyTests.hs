@@ -19,10 +19,10 @@ import Fixtures
     simpleGraphText,
     weightedGraphText,
   )
+import Algorithm.Name (Algorithm (..))
 import Graph.Parser (parseGraphFile)
 import Graph.Types
-  ( Algorithm (..),
-    Distance (..),
+  ( Distance (..),
     Edge (..),
     NodeId (..),
     ValidGraph,

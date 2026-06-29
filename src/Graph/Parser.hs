@@ -11,13 +11,12 @@ where
 
 import Control.Exception (IOException, try)
 import Control.Monad ((<=<), foldM)
-import Data.Char (isSpace)
 import Data.Foldable (traverse_)
+import Algorithm.Name (Algorithm (..))
 import Graph.ParseError
-import Graph.Reading (readNonNegativeInt, readPositiveInt)
+import Util.Reading (readNonNegativeInt, readPositiveInt, trim)
 import Graph.Types
-  ( Algorithm (..),
-    Edge (..),
+  ( Edge (..),
     GraphEndpoint (..),
     GraphError (..),
     NodeId (..),
@@ -114,9 +113,6 @@ prepareLines =
     . map trim
     . lines
 
-trim :: String -> String
-trim = reverse . dropWhile isSpace . reverse . dropWhile isSpace
-
 step :: ParseState -> String -> Either ParseError ParseState
 step st line =
   case words line of
@@ -127,12 +123,6 @@ step st line =
       Right st {psInEdges = True}
     ["WEIGHTED"] ->
       Right st {psWeighted = True, psInEdges = False}
-    ["SOURCE", _] ->
-      Left (LegacyCliDirective "SOURCE")
-    ["TARGET", _] ->
-      Left (LegacyCliDirective "TARGET")
-    ["ALGORITHM", _] ->
-      Left (LegacyCliDirective "ALGORITHM")
     ws | psInEdges st ->
       parseEdgeLine st ws
     _ ->

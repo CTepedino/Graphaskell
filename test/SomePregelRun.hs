@@ -1,11 +1,11 @@
-module Output.Run
+module SomePregelRun
   ( SomePregelRun (..),
     somePregelResult,
   )
 where
 
+import Algorithm.Log (DescribeLogEntry)
 import Algorithm.Result (Result)
-import Output.Log (DescribeLogEntry)
 import Pregel.Types (PregelRun (..))
 
 data SomePregelRun where

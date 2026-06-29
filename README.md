@@ -90,5 +90,3 @@ EDGES
 0 1 4
 0 2 1
 ```
-
-Legacy directives (`SOURCE`, `TARGET`, `ALGORITHM`) in graph files are rejected; use CLI flags instead.

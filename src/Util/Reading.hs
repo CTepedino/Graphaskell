@@ -1,6 +1,7 @@
-module Graph.Reading
+module Util.Reading
   ( readNonNegativeInt,
     readPositiveInt,
+    trim,
   )
 where
 

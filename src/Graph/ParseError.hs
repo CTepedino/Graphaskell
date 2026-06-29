@@ -25,7 +25,6 @@ data ParseError
   = MissingDirective Directive
   | NoEdges
   | UnknownLine String
-  | LegacyCliDirective String
   | InvalidPositiveInteger ParseContext String
   | InvalidNodeId ParseContext String
   | NodeOutOfRange ParseContext NodeId Int
@@ -44,10 +43,6 @@ displayParseError err =
       "Missing EDGES section or no edges defined"
     UnknownLine line ->
       "Unknown line or outside EDGES section: " ++ line
-    LegacyCliDirective name ->
-      name
-        ++ " is no longer defined in the graph file; "
-        ++ "use CLI flags (--source, --target, or --algorithm)"
     InvalidPositiveInteger ctx raw ->
       showContext ctx ++ " must be a positive integer: " ++ raw
     InvalidNodeId ctx raw ->

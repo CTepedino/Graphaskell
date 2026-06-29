@@ -2,7 +2,6 @@ module Graph.Types
   ( NodeId (..),
     Distance (..),
     Weight (..),
-    Algorithm (..),
     Edge (..),
     ValidGraph,
     GraphError (..),
@@ -48,14 +47,6 @@ succDistance (Distance d) = Distance (d + 1)
 
 distancePlusWeight :: Distance -> Weight -> Distance
 distancePlusWeight (Distance d) (Weight w) = Distance (d + w)
-
-data Algorithm
-  = BFS
-  | BellmanFord
-  | PageRank
-  | ConnectedComponents
-  | LabelPropagation
-  deriving (Eq, Show, Read)
 
 data Edge = Edge
   { edgeFrom :: NodeId,

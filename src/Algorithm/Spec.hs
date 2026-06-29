@@ -15,7 +15,8 @@ import Algorithm.Error (AlgorithmError (..))
 import Algorithm.LabelPropagation (labelPropagationSpec)
 import Algorithm.PageRank (pageRankSpec)
 import Algorithm.Types (SomeAlgorithmSpec (..))
-import Graph.Types (ValidGraph, Algorithm (..), NodeId (..))
+import Algorithm.Name (Algorithm (..))
+import Graph.Types (ValidGraph, NodeId (..))
 
 requirePathTarget :: Maybe NodeId -> Either AlgorithmError NodeId
 requirePathTarget = maybe (Left MissingPathTarget) Right

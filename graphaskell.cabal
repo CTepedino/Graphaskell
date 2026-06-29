@@ -27,6 +27,7 @@ library
         Algorithm.LabelPropagation,
         Algorithm.Log,
         Algorithm.Messages,
+        Algorithm.Name,
         Algorithm.Observability,
         Algorithm.PageRank,
         Algorithm.Result,
@@ -37,12 +38,9 @@ library
         Cli.Options,
         Graph.ParseError,
         Graph.Parser,
-        Graph.Reading,
         Graph.Types,
         Graph.VertexContext,
-        Output.Log,
         Output.Result,
-        Output.Run,
         Output.Trace,
         Pregel.Engine,
         Pregel.Env,
@@ -50,7 +48,8 @@ library
         Pregel.Loop,
         Pregel.Pool,
         Pregel.Superstep,
-        Pregel.Types
+        Pregel.Types,
+        Util.Reading
     default-language: GHC2021
     hs-source-dirs:   src
 
@@ -80,6 +79,7 @@ test-suite graphaskell-test
         PropertyTests,
         Fixtures,
         SequentialEngine,
+        SomePregelRun,
         TestSupport
     build-depends:
         base,

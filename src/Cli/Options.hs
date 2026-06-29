@@ -8,8 +8,9 @@ import Cli.Error (CliError (..), displayCliError)
 import Control.Concurrent (getNumCapabilities)
 import Data.Bifunctor (first)
 import Data.Char (toUpper)
-import Graph.Reading (readNonNegativeInt)
-import Graph.Types (Algorithm (..), NodeId (..))
+import Algorithm.Name (Algorithm (..))
+import Util.Reading (readNonNegativeInt)
+import Graph.Types (NodeId (..))
 import Options.Applicative
 import System.Exit (die)
 

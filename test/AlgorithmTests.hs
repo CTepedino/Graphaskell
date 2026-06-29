@@ -13,8 +13,9 @@ import Fixtures
     simpleGraphText,
     weightedGraphText,
   )
-import Graph.Types (Algorithm (..), Distance (..), NodeId (..))
-import Output.Run (somePregelResult)
+import Algorithm.Name (Algorithm (..))
+import Graph.Types (Distance (..), NodeId (..))
+import SomePregelRun (somePregelResult)
 import Pregel.Error (PregelError (..))
 import Test.HUnit
 import TestSupport

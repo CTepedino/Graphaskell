@@ -1,12 +1,12 @@
 module Main where
 
-import Output.Log (DescribeLogEntry (..))
 import Algorithm.Spec
   ( SomeAlgorithmSpec (..),
     resolveAlgorithm,
     validatePathSource,
     validatePathTarget,
   )
+import Algorithm.Log (DescribeLogEntry (..))
 import Algorithm.Types (AlgorithmSpec (..))
 import AppError (AppError (..), displayAppError)
 import Cli.Options (Options (..), parseOptions)

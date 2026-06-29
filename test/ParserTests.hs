@@ -36,15 +36,6 @@ parserTests =
           parseGraphFile text @?= Left (MissingDirective DirNodes),
         "missing edges" ~: do
           parseGraphFile "NODES 2\n" @?= Left NoEdges,
-        "SOURCE in graph file is rejected" ~: do
-          let text = simpleGraphText ++ "\nSOURCE 0"
-          parseGraphFile text @?= Left (LegacyCliDirective "SOURCE"),
-        "TARGET in graph file is rejected" ~: do
-          let text = simpleGraphText ++ "\nTARGET 1"
-          parseGraphFile text @?= Left (LegacyCliDirective "TARGET"),
-        "ALGORITHM in graph file is rejected" ~: do
-          let text = simpleGraphText ++ "\nALGORITHM BFS"
-          parseGraphFile text @?= Left (LegacyCliDirective "ALGORITHM"),
         "source node out of range in validateRunNodes" ~: do
           case parseGraphFile simpleGraphText of
             Right graph ->

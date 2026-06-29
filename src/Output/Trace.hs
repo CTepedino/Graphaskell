@@ -3,7 +3,7 @@ module Output.Trace
   )
 where
 
-import Output.Log (DescribeLogEntry (..))
+import Algorithm.Log (DescribeLogEntry (..))
 import Output.Result (describeResult)
 import Data.List (sortBy)
 import Data.Ord (comparing)
