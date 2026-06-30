@@ -13,11 +13,9 @@ import Cli.Options (Options (..), parseOptions)
 import Control.Monad.Except (ExceptT (..), runExceptT)
 import Control.Monad.IO.Class (liftIO)
 import Data.Bifunctor (first)
-import Graph.Parser
-  ( describeGraph,
-    loadGraphFile,
-    validateRunNodesForAlgorithm,
-  )
+import Graph.Describe (describeGraph)
+import Graph.Load (loadGraphFile)
+import Graph.Validation (validateRunNodes)
 import Graph.Types (ValidGraph, nodeCount)
 import Output.Trace (describeRun)
 import Pregel.Engine (runPregel)
@@ -43,12 +41,8 @@ execute opts = do
   graph <-
     exceptTWith AppLoad =<< liftIO (loadGraphFile (optGraphPath opts))
   except
-    ( first AppParse
-        ( validateRunNodesForAlgorithm
-            graph
-            (optAlgorithm opts)
-            (optSource opts)
-            (optTarget opts)
+    ( first AppGraphValidation
+        ( validateRunNodes graph (optSource opts) (optTarget opts)
         )
     )
   case resolveAlgorithm (optAlgorithm opts) of

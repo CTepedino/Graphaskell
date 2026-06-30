@@ -1,18 +1,10 @@
 module Graph.Parser
-  ( LoadGraphError (..),
-    loadGraphFile,
-    parseGraphFile,
-    describeGraph,
-    validateRunNodes,
-    validateRunNodesForAlgorithm,
-    displayLoadGraphError,
+  ( parseGraphFile,
   )
 where
 
-import Control.Exception (IOException, try)
 import Control.Monad ((<=<), foldM)
-import Data.Foldable (traverse_)
-import Algorithm.Name (Algorithm (..))
+import Data.Bifunctor (first)
 import Graph.ParseError
 import Util.Reading (readNonNegativeInt, readPositiveInt, trim)
 import Graph.Types
@@ -24,72 +16,11 @@ import Graph.Types
     Weight (..),
     buildGraph,
     defaultEdgeWeight,
-    graphEdges,
-    graphNodes,
-    isValidNode,
-    neighbors,
-    nodeCount,
   )
-
-data LoadGraphError
-  = LoadReadError FilePath String
-  | LoadParseError ParseError
-  deriving (Eq, Show)
-
-displayLoadGraphError :: LoadGraphError -> String
-displayLoadGraphError err =
-  case err of
-    LoadReadError path message ->
-      "Could not read file "
-        ++ path
-        ++ ": "
-        ++ message
-    LoadParseError parseError ->
-      displayParseError parseError
-
-loadGraphFile :: FilePath -> IO (Either LoadGraphError ValidGraph)
-loadGraphFile path = do
-  result <- try (readFile path) :: IO (Either IOException String)
-  pure $
-    case result of
-      Left exception ->
-        Left (LoadReadError path (show exception))
-      Right contents ->
-        case parseGraphFile contents of
-          Left parseError -> Left (LoadParseError parseError)
-          Right graph -> Right graph
 
 parseGraphFile :: String -> Either ParseError ValidGraph
 parseGraphFile =
   finalize <=< foldM step initialState . prepareLines
-
-describeGraph :: ValidGraph -> String
-describeGraph graph =
-  unlines
-    [ "  Nodes:      " ++ show (nodeCount graph),
-      "  Edges:      " ++ show (length (graphEdges graph)),
-      "",
-      adjSummary graph
-    ]
-
-validateRunNodes :: ValidGraph -> NodeId -> Maybe NodeId -> Either ParseError ()
-validateRunNodes graph source target = do
-  validateNode graph CtxSource source
-  traverse_ (validateNode graph CtxTarget) target
-
-validateRunNodesForAlgorithm ::
-  ValidGraph -> Algorithm -> Maybe NodeId -> Maybe NodeId -> Either ParseError ()
-validateRunNodesForAlgorithm graph algo mSource target = do
-  traverse_ (validateNode graph CtxTarget) target
-  case (algo, mSource) of
-    (BFS, Just source) ->
-      validateNode graph CtxSource source
-    (BellmanFord, Just source) ->
-      validateNode graph CtxSource source
-    (_, Just source) ->
-      validateNode graph CtxSource source
-    _ ->
-      Right ()
 
 data ParseState = ParseState
   { psNodeCount :: Maybe Int,
@@ -133,8 +64,7 @@ parseEdgeLine st ws
   | psWeighted st =
       case ws of
         [fromStr, toStr, weightStr] -> do
-          from <- parseNodeId CtxEdgeFrom fromStr
-          to <- parseNodeId CtxEdgeTo toStr
+          (from, to) <- parseEndpoints fromStr toStr
           weight <- parseWeight CtxEdgeWeight weightStr
           let edge = Edge from to weight
           Right st {psEdges = edge : psEdges st}
@@ -142,13 +72,18 @@ parseEdgeLine st ws
   | otherwise =
       case ws of
         [fromStr, toStr] -> do
-          from <- parseNodeId CtxEdgeFrom fromStr
-          to <- parseNodeId CtxEdgeTo toStr
+          (from, to) <- parseEndpoints fromStr toStr
           let edge = Edge from to defaultEdgeWeight
           Right st {psEdges = edge : psEdges st}
         [_, _, _] ->
           Left (WeightOnUnweightedGraph (unwords ws))
         _ -> Left InvalidUnweightedEdge
+
+parseEndpoints :: String -> String -> Either ParseError (NodeId, NodeId)
+parseEndpoints fromStr toStr = do
+  from <- parseNodeId CtxEdgeFrom fromStr
+  to <- parseNodeId CtxEdgeTo toStr
+  pure (from, to)
 
 finalize :: ParseState -> Either ParseError ValidGraph
 finalize st = do
@@ -158,19 +93,13 @@ finalize st = do
     then Left NoEdges
     else do
       let edges = reverse (psEdges st)
-      firstGraphError (buildGraph nodeTotal edges)
-
-firstGraphError :: Either GraphError ValidGraph -> Either ParseError ValidGraph
-firstGraphError (Left err) =
-  Left (graphErrorToParseError err)
-firstGraphError (Right graph) =
-  Right graph
+      first graphErrorToParseError (buildGraph nodeTotal edges)
 
 graphErrorToParseError :: GraphError -> ParseError
 graphErrorToParseError err =
   case err of
     GraphBuildInvalidNodeCount n ->
-      InvalidPositiveInteger CtxNodes (show n)
+      InvalidNodeCount n
     GraphBuildInvalidNodeId endpoint nodeId maxNode ->
       NodeOutOfRange (graphEndpointToParseContext endpoint) nodeId maxNode
 
@@ -179,12 +108,6 @@ graphEndpointToParseContext endpoint =
   case endpoint of
     EdgeFrom -> CtxEdgeFrom
     EdgeTo -> CtxEdgeTo
-
-validateNode :: ValidGraph -> ParseContext -> NodeId -> Either ParseError ()
-validateNode graph ctx nodeId
-  | isValidNode graph nodeId = Right ()
-  | otherwise =
-      Left (NodeOutOfRange ctx nodeId (nodeCount graph - 1))
 
 parsePositive :: ParseContext -> String -> Either ParseError Int
 parsePositive ctx raw =
@@ -203,22 +126,3 @@ parseNodeId ctx raw =
   case readNonNegativeInt raw of
     Left _ -> Left (InvalidNodeId ctx raw)
     Right n -> Right (NodeId n)
-
-adjSummary :: ValidGraph -> String
-adjSummary graph =
-  unlines
-    ( "  Adjacency:"
-        : map formatAdj (graphNodes graph)
-    )
-  where
-    formatAdj nodeId =
-      let nbs = neighbors graph nodeId
-       in "    "
-            ++ show nodeId
-            ++ " -> "
-            ++ if null nbs
-              then "[]"
-              else unwords (map formatNeighbor nbs)
-    formatNeighbor (to, weight)
-      | weight == defaultEdgeWeight = show to
-      | otherwise = show to ++ "(" ++ show weight ++ ")"

@@ -5,13 +5,19 @@ import Fixtures
     simpleGraphText,
     weightedGraphText,
   )
+import Graph.Load (loadGraphFile)
 import Graph.ParseError
   ( Directive (..),
     ParseContext (..),
     ParseError (..),
   )
-import Graph.Parser (loadGraphFile, parseGraphFile, validateRunNodes)
+import Graph.Parser (parseGraphFile)
 import Graph.Types (NodeId (..), nodeCount)
+import Graph.Validation (validateRunNodes)
+import Graph.ValidationError
+  ( GraphValidationError (..),
+    RunNodeContext (..),
+  )
 import System.Directory (doesFileExist)
 import Test.HUnit
 import TestSupport (examplesGraphPaths, readExampleGraph)
@@ -39,14 +45,14 @@ parserTests =
         "source node out of range in validateRunNodes" ~: do
           case parseGraphFile simpleGraphText of
             Right graph ->
-              validateRunNodes graph (NodeId 9) Nothing
-                @?= Left (NodeOutOfRange CtxSource (NodeId 9) 4)
+              validateRunNodes graph (Just (NodeId 9)) Nothing
+                @?= Left (RunNodeOutOfRange RunSource (NodeId 9) 4)
             Left err -> assertFailure (show err),
         "target node out of range in validateRunNodes" ~: do
           case parseGraphFile simpleGraphText of
             Right graph ->
-              validateRunNodes graph (NodeId 0) (Just (NodeId 9))
-                @?= Left (NodeOutOfRange CtxTarget (NodeId 9) 4)
+              validateRunNodes graph (Just (NodeId 0)) (Just (NodeId 9))
+                @?= Left (RunNodeOutOfRange RunTarget (NodeId 9) 4)
             Left err -> assertFailure (show err),
         "edge endpoint out of range" ~: do
           let text =
@@ -96,7 +102,7 @@ parserTests =
         "validateRunNodes accepts valid source and target" ~: do
           case parseGraphFile simpleGraphText of
             Right graph ->
-              validateRunNodes graph (NodeId 0) (Just (NodeId 4)) @?= Right ()
+              validateRunNodes graph (Just (NodeId 0)) (Just (NodeId 4)) @?= Right ()
             Left err -> assertFailure (show err),
         "loadGraphFile reads existing example graph" ~: do
           exists <- doesFileExist "examples/grafo-simple.txt"

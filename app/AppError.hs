@@ -6,14 +6,14 @@ where
 
 import Algorithm.Error (AlgorithmError, displayAlgorithmError)
 import Cli.Error (CliError, displayCliError)
-import Graph.ParseError (ParseError, displayParseError)
-import Graph.Parser (LoadGraphError, displayLoadGraphError)
+import Graph.Load (LoadGraphError, displayLoadGraphError)
+import Graph.ValidationError (GraphValidationError, displayGraphValidationError)
 import Pregel.Error (PregelError, displayPregelError)
 
 data AppError
   = AppCli CliError
   | AppAlgorithm AlgorithmError
-  | AppParse ParseError
+  | AppGraphValidation GraphValidationError
   | AppLoad LoadGraphError
   | AppPregel PregelError
   deriving (Eq, Show)
@@ -25,8 +25,8 @@ displayAppError err =
       displayCliError cliError
     AppAlgorithm algorithmError ->
       displayAlgorithmError algorithmError
-    AppParse parseError ->
-      "Error in source/target: " ++ displayParseError parseError
+    AppGraphValidation validationError ->
+      "Error in source/target: " ++ displayGraphValidationError validationError
     AppLoad loadError ->
       "Error loading graph: " ++ displayLoadGraphError loadError
     AppPregel pregelError ->

@@ -14,8 +14,6 @@ data Directive
 
 data ParseContext
   = CtxNodes
-  | CtxSource
-  | CtxTarget
   | CtxEdgeFrom
   | CtxEdgeTo
   | CtxEdgeWeight
@@ -25,6 +23,7 @@ data ParseError
   = MissingDirective Directive
   | NoEdges
   | UnknownLine String
+  | InvalidNodeCount Int
   | InvalidPositiveInteger ParseContext String
   | InvalidNodeId ParseContext String
   | NodeOutOfRange ParseContext NodeId Int
@@ -42,6 +41,8 @@ displayParseError err =
       "Missing EDGES section or no edges defined"
     UnknownLine line ->
       "Unknown line or outside EDGES section: " ++ line
+    InvalidNodeCount n ->
+      "NODES count must be a positive integer: " ++ show n
     InvalidPositiveInteger ctx raw ->
       showContext ctx ++ " must be a positive integer: " ++ raw
     InvalidNodeId ctx raw ->
@@ -64,8 +65,6 @@ showContext :: ParseContext -> String
 showContext ctx =
   case ctx of
     CtxNodes -> "NODES"
-    CtxSource -> "SOURCE"
-    CtxTarget -> "TARGET"
     CtxEdgeFrom -> "edge (from)"
     CtxEdgeTo -> "edge (to)"
     CtxEdgeWeight -> "edge (weight)"
