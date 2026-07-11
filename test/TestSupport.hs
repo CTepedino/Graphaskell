@@ -3,12 +3,13 @@ module TestSupport
     assertEnginesAgree,
     assertEnginesAgreeSome,
     assertRankingsApprox,
+    assertRankingsMatchReference,
+    assertRankingsSumToOne,
     assertValidBfsPath,
     enginesAgree,
     examplesGraphPaths,
     labelPropagationExpected,
     nodeLabelsMatch,
-    pageRankExpected,
     pathSourceTarget,
     rankingsApprox,
     readExampleGraph,
@@ -20,6 +21,7 @@ module TestSupport
 where
 
 import Algorithm.Log (MessageLog)
+import Algorithm.PageRank (pageRankReference)
 import Algorithm.Result (Result (..))
 import Algorithm.Spec (SomeAlgorithmSpec (..))
 import Algorithm.Types (AlgorithmSpec (..))
@@ -46,14 +48,6 @@ import qualified Data.Set as Set
 import SequentialEngine (runPregelSequential)
 import System.Directory (doesFileExist)
 import Test.HUnit (Assertion, (@?=), assertBool, assertFailure)
-
-pageRankExpected :: [(NodeId, Double)]
-pageRankExpected =
-  [ (NodeId 0, 0.12002296283541904),
-    (NodeId 1, 0.13951951841010618),
-    (NodeId 2, 0.09679579532429514),
-    (NodeId 3, 0.09679579532429514)
-  ]
 
 labelPropagationExpected :: [(NodeId, NodeId)]
 labelPropagationExpected =
@@ -158,6 +152,20 @@ assertRankingsApprox epsilon expected result =
   if rankingsApprox epsilon expected result
     then pure ()
     else assertFailure ("rankings differ from expected: " ++ show result)
+
+assertRankingsSumToOne :: Double -> Result -> Assertion
+assertRankingsSumToOne epsilon result =
+  case result of
+    Rankings actual ->
+      let total = sum [rank | (_, rank) <- actual]
+       in assertBool ("ranks should sum to 1, got " ++ show total) (abs (total - 1.0) <= epsilon)
+    other ->
+      assertFailure ("expected Rankings, got " ++ show other)
+
+assertRankingsMatchReference :: Double -> ValidGraph -> Result -> Assertion
+assertRankingsMatchReference epsilon graph result =
+  assertRankingsApprox epsilon (pageRankReference graph) result
+      >> assertRankingsSumToOne epsilon result
 
 nodeLabelsMatch :: [(NodeId, NodeId)] -> Result -> Bool
 nodeLabelsMatch expected result =

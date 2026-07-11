@@ -4,7 +4,7 @@ import Algorithm.BFS (bfsSpec)
 import Algorithm.BellmanFord (bellmanFordSpec)
 import Algorithm.Common (reconstructPath, tryImproveDistance, tryRelabel)
 import Algorithm.LabelPropagation (labelPropagationSpec, labelPropagationStable)
-import Algorithm.PageRank (pageRankSpec)
+import Algorithm.PageRank (pageRankReference, pageRankSpec)
 import Algorithm.Result (Result (..))
 import Algorithm.Spec (SomeAlgorithmSpec (..), resolveAlgorithm)
 import Algorithm.State (LabelState (..), PathState (..), emptyPathState)
@@ -50,7 +50,6 @@ import Test.QuickCheck.Monadic qualified as QM (assert, monadicIO, run)
 import Test.QuickCheck.Test qualified as QC
 import TestSupport
   ( enginesAgree,
-    pageRankExpected,
     rankingsApprox,
     shortestHops,
     shortestWeightedDistance,
@@ -353,7 +352,12 @@ prop_pageRankConvergesToExpected =
       Right graph ->
         case runPageRankSequential graph of
           Just result ->
-            rankingsApprox 1e-6 pageRankExpected result
+            rankingsApprox 1e-6 (pageRankReference graph) result
+              && case result of
+                Rankings actual ->
+                  abs (sum [rank | (_, rank) <- actual] - 1.0) <= 1e-6
+                _ ->
+                  False
           _ ->
             False
       _ ->

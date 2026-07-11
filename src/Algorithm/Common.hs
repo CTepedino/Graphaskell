@@ -251,4 +251,4 @@ atLeastOneSuperstep n = max 1 n
 
 pageRankMaxSupersteps :: Int -> Int
 pageRankMaxSupersteps n =
-  max 1 (n * n)
+  max 50 (n * n)

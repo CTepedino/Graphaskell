@@ -1,14 +1,17 @@
 module Algorithm.PageRank
   ( pageRankSpec,
+    pageRankReference,
   )
 where
 
-import Algorithm.Common (extractRankingsResult, runVertexUpdate)
+import Algorithm.Common (extractRankingsResult)
 import Algorithm.Messages (RankMsg (..))
 import Algorithm.State (RankState (..))
 import Algorithm.Types (AlgorithmSpec, RankLog, mkRankSpec)
-import Graph.Types
-import Graph.VertexContext (VertexContext (..), outNeighbors, outDegree)
+import Data.List (sort)
+import qualified Data.Map.Strict as Map
+import Graph.Types (NodeId, ValidGraph, graphNodes, neighbors, nodeCount)
+import Graph.VertexContext (VertexContext (..), allNodes, outNeighbors, outDegree)
 import Pregel.Types
 
 damping :: Double
@@ -29,14 +32,21 @@ initState _nodeId cfg =
 bootstrap :: RunConfig -> [(NodeId, RankMsg)]
 bootstrap cfg =
   let graph = rcGraph cfg
+      nodes = graphNodes graph
       n = fromIntegral (nodeCount graph)
       initRank = 1 / n
-   in [ (to, RankMsg (initRank / fromIntegral od))
-        | nodeId <- graphNodes graph,
-          let od = length (neighbors graph nodeId),
-          od > 0,
-          (to, _) <- neighbors graph nodeId
-      ]
+   in concat
+        [ if od > 0
+            then
+              [ (to, RankMsg (initRank / fromIntegral od))
+                | (to, _) <- neighbors graph nodeId
+              ]
+            else
+              [ (to, RankMsg (initRank / n)) | to <- nodes
+              ]
+        | nodeId <- nodes,
+          let od = length (neighbors graph nodeId)
+        ]
 
 vertexUpdate ::
   VertexContext ->
@@ -45,30 +55,53 @@ vertexUpdate ::
   VertexStepResult RankState RankMsg
 vertexUpdate vtx state messages =
   let n = fromIntegral (vcNodeCount vtx)
-      nodeId = vcNodeId vtx
-   in runVertexUpdate
-        vtx
-        state
-        messages
-        (pageRankUpdate n nodeId)
-        emitOutgoing
-
-pageRankUpdate :: Double -> NodeId -> [RankMsg] -> RankState -> Maybe RankState
-pageRankUpdate n _nodeId messages state =
-  let oldRank = rsRank state
+      oldRank = rsRank state
       incoming = sum [rmRank message | message <- messages]
       newRank = (1 - damping) / n + damping * incoming
+      newState = RankState newRank
+      outgoing = emitOutgoing vtx newState
    in if abs (newRank - oldRank) <= rankEpsilon
-        then Nothing
-        else Just (RankState newRank)
+        then VertexStepResult state outgoing
+        else VertexStepResult newState outgoing
 
 emitOutgoing :: VertexContext -> RankState -> [(NodeId, RankMsg)]
 emitOutgoing vtx state =
   let rank = rsRank state
       od = outDegree vtx
+      n = fromIntegral (vcNodeCount vtx)
    in if od == 0
-        then []
+        then
+          [ (to, RankMsg (rank / n)) | to <- allNodes vtx
+          ]
         else
           [ (to, RankMsg (rank / fromIntegral od))
             | to <- outNeighbors vtx
           ]
+
+pageRankReference :: ValidGraph -> [(NodeId, Double)]
+pageRankReference graph =
+  let nodes = graphNodes graph
+      n = fromIntegral (length nodes)
+      outDeg nodeId = length (neighbors graph nodeId)
+      outTargets nodeId = map fst (neighbors graph nodeId)
+      initial = Map.fromList [(nodeId, 1 / n) | nodeId <- nodes]
+      converged old new =
+        all (\nodeId -> abs (old Map.! nodeId - new Map.! nodeId) <= rankEpsilon) nodes
+      step ranks =
+        let danglingMass =
+              sum [ranks Map.! nodeId | nodeId <- nodes, outDeg nodeId == 0]
+            incoming nodeId =
+              sum
+                [ ranks Map.! fromNode / fromIntegral (outDeg fromNode)
+                  | fromNode <- nodes,
+                    nodeId `elem` outTargets fromNode
+                ]
+                + danglingMass / n
+            newRank nodeId = (1 - damping) / n + damping * incoming nodeId
+         in Map.fromList [(nodeId, newRank nodeId) | nodeId <- nodes]
+      go ranks
+        | converged ranks (step ranks) =
+            sort [(nodeId, ranks Map.! nodeId) | nodeId <- nodes]
+        | otherwise =
+            go (step ranks)
+   in go initial

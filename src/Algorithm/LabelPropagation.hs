@@ -13,7 +13,7 @@ import Algorithm.Messages (LabelMsg (..))
 import Algorithm.State (LabelState (..))
 import Algorithm.Types (AlgorithmSpec, LabelLog, mkLabelSpec)
 import qualified Data.Map.Strict as Map
-import Graph.Types (NodeId, ValidGraph, graphNodes, neighbors)
+import Graph.Types (Edge (..), NodeId, ValidGraph, graphEdges, graphNodes)
 import Graph.VertexContext (VertexContext)
 import Pregel.Types
 
@@ -33,9 +33,16 @@ labelPropagationStable graph pairs =
    in all isStable (graphNodes graph)
   where
     neighborLabelMessages graph' nodeId states' =
-      [ LabelMsg (lsLabel (states' Map.! to))
-        | (to, _) <- neighbors graph' nodeId
+      [ LabelMsg (lsLabel (states' Map.! from))
+        | from <- incomingNeighbors graph' nodeId
       ]
+
+incomingNeighbors :: ValidGraph -> NodeId -> [NodeId]
+incomingNeighbors graph nodeId =
+  [ edgeFrom edge
+    | edge <- graphEdges graph,
+      edgeTo edge == nodeId
+  ]
 
 vertexUpdate ::
   VertexContext ->

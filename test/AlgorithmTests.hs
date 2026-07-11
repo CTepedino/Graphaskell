@@ -19,10 +19,9 @@ import Pregel.Error (PregelError (..))
 import Test.HUnit
 import TestSupport
   ( assertEnginesAgreeSome,
-    assertRankingsApprox,
+    assertRankingsMatchReference,
     assertValidBfsPath,
     labelPropagationExpected,
-    pageRankExpected,
     requireFixture,
   )
 
@@ -72,9 +71,10 @@ algorithmTests =
           requireFixture (runFixtureEither ConnectedComponents (NodeId 0) Nothing disconnectedGraphText)
         somePregelResult someRun @?= Components [(NodeId 0, [NodeId 0, NodeId 1]), (NodeId 2, [NodeId 2, NodeId 3])],
       "PageRank converges to expected rankings" ~: do
+        graph <- requireFixture (parseFixture pageRankGraphText)
         someRun <-
           requireFixture (runFixtureEither PageRank (NodeId 0) Nothing pageRankGraphText)
-        assertRankingsApprox 1e-6 pageRankExpected (somePregelResult someRun),
+        assertRankingsMatchReference 1e-6 graph (somePregelResult someRun),
       "label propagation converges to expected labels" ~: do
         someRun <-
           requireFixture (runFixtureEither LabelPropagation (NodeId 0) Nothing simpleGraphText)

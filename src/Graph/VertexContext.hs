@@ -2,6 +2,7 @@ module Graph.VertexContext
   ( VertexContext (..),
     VertexContexts,
     buildVertexContexts,
+    allNodes,
     lookupIncomingWeight,
     outNeighbors,
     outDegree,
@@ -16,7 +17,8 @@ data VertexContext = VertexContext
   { vcNodeId :: NodeId,
     vcOutEdges :: [(NodeId, Weight)],
     vcInWeights :: Map NodeId Weight,
-    vcNodeCount :: Int
+    vcNodeCount :: Int,
+    vcAllNodes :: [NodeId]
   }
   deriving (Eq, Show)
 
@@ -25,16 +27,18 @@ type VertexContexts = Map NodeId VertexContext
 buildVertexContexts :: ValidGraph -> VertexContexts
 buildVertexContexts graph =
   let n = nodeCount graph
+      nodes = graphNodes graph
    in Map.fromList
         [ ( nodeId,
             VertexContext
               { vcNodeId = nodeId,
                 vcOutEdges = neighbors graph nodeId,
                 vcInWeights = incomingWeights graph nodeId,
-                vcNodeCount = n
+                vcNodeCount = n,
+                vcAllNodes = nodes
               }
           )
-        | nodeId <- graphNodes graph
+        | nodeId <- nodes
         ]
 
 incomingWeights :: ValidGraph -> NodeId -> Map NodeId Weight
@@ -54,3 +58,6 @@ outNeighbors vtx = map fst (vcOutEdges vtx)
 
 outDegree :: VertexContext -> Int
 outDegree vtx = length (vcOutEdges vtx)
+
+allNodes :: VertexContext -> [NodeId]
+allNodes = vcAllNodes
