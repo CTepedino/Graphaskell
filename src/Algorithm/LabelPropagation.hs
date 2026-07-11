@@ -12,6 +12,7 @@ import Algorithm.Common
 import Algorithm.Messages (LabelMsg (..))
 import Algorithm.State (LabelState (..))
 import Algorithm.Types (AlgorithmSpec, LabelLog, mkLabelSpec)
+import Data.List (minimum)
 import qualified Data.Map.Strict as Map
 import Graph.Types (Edge (..), NodeId, ValidGraph, graphEdges, graphNodes)
 import Graph.VertexContext (VertexContext)
@@ -68,4 +69,4 @@ majorityLabel self messages =
           | (label, votes) <- Map.toList tallies,
             votes == maxVotes
         ]
-   in foldl min self winners
+   in minimum winners

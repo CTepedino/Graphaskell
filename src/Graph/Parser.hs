@@ -5,6 +5,7 @@ where
 
 import Control.Monad ((<=<), foldM)
 import Data.Bifunctor (first)
+import Data.List (nubBy)
 import Graph.ParseError
 import Util.Reading (readNonNegativeInt, readPositiveInt, trim)
 import Graph.Types
@@ -25,6 +26,7 @@ parseGraphFile =
 data ParseState = ParseState
   { psNodeCount :: Maybe Int,
     psWeighted :: Bool,
+    psUndirected :: Bool,
     psInEdges :: Bool,
     psEdges :: [Edge]
   }
@@ -34,6 +36,7 @@ initialState =
   ParseState
     { psNodeCount = Nothing,
       psWeighted = False,
+      psUndirected = False,
       psInEdges = False,
       psEdges = []
     }
@@ -54,6 +57,8 @@ step st line =
       Right st {psInEdges = True}
     ["WEIGHTED"] ->
       Right st {psWeighted = True, psInEdges = False}
+    ["UNDIRECTED"] ->
+      Right st {psUndirected = True, psInEdges = False}
     ws | psInEdges st ->
       parseEdgeLine st ws
     _ ->
@@ -92,8 +97,22 @@ finalize st = do
   if null (psEdges st)
     then Left NoEdges
     else do
-      let edges = reverse (psEdges st)
+      let edges = symmetrizeEdges (psUndirected st) (reverse (psEdges st))
       first graphErrorToParseError (buildGraph nodeTotal edges)
+
+symmetrizeEdges :: Bool -> [Edge] -> [Edge]
+symmetrizeEdges False edges =
+  edges
+symmetrizeEdges True edges =
+  nubBy sameEdge $
+    edges
+      ++ [ Edge to from weight
+           | Edge from to weight <- edges,
+             from /= to
+         ]
+  where
+    sameEdge (Edge fromA toA _) (Edge fromB toB _) =
+      fromA == fromB && toA == toB
 
 graphErrorToParseError :: GraphError -> ParseError
 graphErrorToParseError err =

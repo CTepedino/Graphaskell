@@ -12,7 +12,7 @@ import Graph.ParseError
     ParseError (..),
   )
 import Graph.Parser (parseGraphFile)
-import Graph.Types (NodeId (..), nodeCount)
+import Graph.Types (NodeId (..), Weight (..), defaultEdgeWeight, neighbors, nodeCount)
 import Graph.Validation (validateRunNodes)
 import Graph.ValidationError
   ( GraphValidationError (..),
@@ -82,6 +82,33 @@ parserTests =
                     "0 1"
                   ]
           parseGraphFile text @?= Left InvalidWeightedEdge,
+        "UNDIRECTED duplicates edges in both directions" ~: do
+          let text =
+                unlines
+                  [ "NODES 2",
+                    "UNDIRECTED",
+                    "EDGES",
+                    "1 0"
+                  ]
+          case parseGraphFile text of
+            Right graph -> do
+              neighbors graph (NodeId 0) @?= [(NodeId 1, defaultEdgeWeight)]
+              neighbors graph (NodeId 1) @?= [(NodeId 0, defaultEdgeWeight)]
+            Left err -> assertFailure (show err),
+        "UNDIRECTED duplicates weighted edges with the same weight" ~: do
+          let text =
+                unlines
+                  [ "NODES 2",
+                    "WEIGHTED",
+                    "UNDIRECTED",
+                    "EDGES",
+                    "0 1 5"
+                  ]
+          case parseGraphFile text of
+            Right graph -> do
+              neighbors graph (NodeId 0) @?= [(NodeId 1, Weight 5)]
+              neighbors graph (NodeId 1) @?= [(NodeId 0, Weight 5)]
+            Left err -> assertFailure (show err),
         "invalid unweighted edge line" ~: do
           let text =
                 unlines
