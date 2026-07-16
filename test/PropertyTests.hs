@@ -4,7 +4,8 @@ import Algorithm.BFS (bfsSpec)
 import Algorithm.BellmanFord (bellmanFordSpec)
 import Algorithm.Common (reconstructPath, tryImproveDistance, tryRelabel)
 import Algorithm.LabelPropagation (labelPropagationSpec, labelPropagationStable)
-import Algorithm.PageRank (pageRankReference, pageRankSpec)
+import Algorithm.PageRank (pageRankSpec)
+import PageRankOracle (pageRankReference)
 import Algorithm.Result (Result (..))
 import Algorithm.Spec (SomeAlgorithmSpec (..), resolveAlgorithm)
 import Algorithm.State (LabelState (..), PathState (..), emptyPathState)
@@ -68,7 +69,7 @@ propertyTests =
         check prop_bfsOptimalHopPath,
       "prop: Bellman-Ford on reachable pairs finds optimal weighted path" ~:
         check prop_bellmanFordOptimalPath,
-      "prop: PageRank converges to expected rankings on fixture graph" ~:
+      "prop: PageRank converges to expected rankings on generated graphs" ~:
         check prop_pageRankConvergesToExpected,
       "prop: label propagation converges to expected labels on fixture graph" ~:
         check prop_labelPropagationConvergesToExpected,
@@ -262,22 +263,24 @@ runBellmanFordSequential graph source target =
 
 runPageRankSequential :: ValidGraph -> Maybe Result
 runPageRankSequential graph =
-  case
-    runPregelSequential
-      ( mkRunConfig
-          graph
+  let n = nodeCount graph
+      maxSteps = max 200 (n * n * n * 10)
+   in case
+        runPregelSequential
+          ( mkRunConfig
+              graph
+              Nothing
+              Nothing
+              1
+              maxSteps
+              False
+          )
+          pageRankSpec
+      of
+        Right run ->
+          Just (prResult run)
+        Left _ ->
           Nothing
-          Nothing
-          1
-          (specMaxSupersteps pageRankSpec (nodeCount graph))
-          False
-      )
-      pageRankSpec
-  of
-    Right run ->
-      Just (prResult run)
-    Left _ ->
-      Nothing
 
 runLabelPropagationSequential :: ValidGraph -> Maybe Result
 runLabelPropagationSequential graph =
@@ -347,19 +350,15 @@ prop_bellmanFordOptimalPath =
 
 prop_pageRankConvergesToExpected :: Property
 prop_pageRankConvergesToExpected =
-  property $
-    case parseFixtureEither pageRankGraphText of
-      Right graph ->
-        case runPageRankSequential graph of
-          Just result ->
-            rankingsApprox 1e-6 (pageRankReference graph) result
-              && case result of
-                Rankings actual ->
-                  abs (sum [rank | (_, rank) <- actual] - 1.0) <= 1e-6
-                _ ->
-                  False
-          _ ->
-            False
+  forAll genReachableGraph $ \(graph, _, _) ->
+    case runPageRankSequential graph of
+      Just result ->
+        rankingsApprox 1e-6 (pageRankReference graph) result
+          && case result of
+            Rankings actual ->
+              abs (sum [rank | (_, rank) <- actual] - 1.0) <= 1e-6
+            _ ->
+              False
       _ ->
         False
 

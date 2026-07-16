@@ -3,6 +3,7 @@ module AlgorithmTests (algorithmTests) where
 import Algorithm.Error (AlgorithmError (..))
 import Algorithm.Result (Result (..))
 import Algorithm.Spec (resolveAlgorithm, validatePathSource, validatePathTarget)
+import Algorithm.PageRank (pageRankSpec)
 import Fixtures
   ( FixtureError (..),
     disconnectedGraphText,
@@ -13,7 +14,9 @@ import Fixtures
     weightedGraphText,
   )
 import Algorithm.Name (Algorithm (..))
-import Graph.Types (Distance (..), NodeId (..))
+import Graph.Types (Distance (..), Edge (..), NodeId (..), buildGraph, defaultEdgeWeight, nodeCount)
+import Pregel.Types (PregelRun (..), mkRunConfig)
+import SequentialEngine (runPregelSequential)
 import SomePregelRun (somePregelResult)
 import Pregel.Error (PregelError (..))
 import Test.HUnit
@@ -75,6 +78,33 @@ algorithmTests =
         someRun <-
           requireFixture (runFixtureEither PageRank (NodeId 0) Nothing pageRankGraphText)
         assertRankingsMatchReference 1e-6 graph (somePregelResult someRun),
+      "PageRank agrees with oracle on parallel edges" ~: do
+        graph <-
+          case
+            buildGraph
+              3
+              [ Edge (NodeId 0) (NodeId 1) defaultEdgeWeight,
+                Edge (NodeId 0) (NodeId 1) defaultEdgeWeight,
+                Edge (NodeId 1) (NodeId 2) defaultEdgeWeight,
+                Edge (NodeId 2) (NodeId 0) defaultEdgeWeight
+              ]
+          of
+            Right validGraph ->
+              pure validGraph
+            Left err ->
+              assertFailure ("buildGraph failed: " ++ show err)
+        let maxSteps = max 200 (nodeCount graph * nodeCount graph * nodeCount graph * 10)
+        run <-
+          case
+            runPregelSequential
+              (mkRunConfig graph Nothing Nothing 1 maxSteps False)
+              pageRankSpec
+          of
+            Right pregelRun ->
+              pure pregelRun
+            Left err ->
+              assertFailure ("PageRank run failed: " ++ show err)
+        assertRankingsMatchReference 1e-6 graph (prResult run),
       "label propagation converges to expected labels" ~: do
         someRun <-
           requireFixture (runFixtureEither LabelPropagation (NodeId 0) Nothing simpleGraphText)

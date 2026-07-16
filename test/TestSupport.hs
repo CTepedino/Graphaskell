@@ -21,7 +21,7 @@ module TestSupport
 where
 
 import Algorithm.Log (MessageLog)
-import Algorithm.PageRank (pageRankReference)
+import PageRankOracle (pageRankReference)
 import Algorithm.Result (Result (..))
 import Algorithm.Spec (SomeAlgorithmSpec (..))
 import Algorithm.Types (AlgorithmSpec (..))

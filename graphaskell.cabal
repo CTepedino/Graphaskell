@@ -82,6 +82,7 @@ test-suite graphaskell-test
         TraceTests,
         PropertyTests,
         Fixtures,
+        PageRankOracle,
         SequentialEngine,
         SomePregelRun,
         TestSupport
