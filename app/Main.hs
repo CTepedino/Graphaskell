@@ -40,11 +40,7 @@ execute opts = do
   except (first AppAlgorithm (validatePathSource (optAlgorithm opts) (optSource opts)))
   graph <-
     exceptTWith AppLoad =<< liftIO (loadGraphFile (optGraphPath opts))
-  except
-    ( first AppGraphValidation
-        ( validateRunNodes graph (optSource opts) (optTarget opts)
-        )
-    )
+  except (first AppGraphValidation (validateRunNodes graph (optSource opts) (optTarget opts)))
   case resolveAlgorithm (optAlgorithm opts) of
     SomeAlgorithmSpec spec -> do
       let cfg =

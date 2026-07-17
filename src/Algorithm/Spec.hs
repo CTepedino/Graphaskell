@@ -16,27 +16,20 @@ import Algorithm.Types (SomeAlgorithmSpec (..))
 import Algorithm.Name (Algorithm (..))
 import Graph.Types (NodeId)
 
-requirePathTarget :: Maybe NodeId -> Either AlgorithmError NodeId
-requirePathTarget = maybe (Left MissingPathTarget) Right
+requiresPath :: Algorithm -> Bool
+requiresPath BFS = True
+requiresPath BellmanFord = True
+requiresPath _ = False
 
-pathAlgorithm :: Algorithm -> Bool
-pathAlgorithm BFS = True
-pathAlgorithm BellmanFord = True
-pathAlgorithm _ = False
+requireNode :: AlgorithmError -> Bool -> Maybe NodeId -> Either AlgorithmError ()
+requireNode err True Nothing = Left err
+requireNode _ _ _ = Right ()
 
 validatePathSource :: Algorithm -> Maybe NodeId -> Either AlgorithmError ()
-validatePathSource algo source
-  | pathAlgorithm algo, Nothing <- source =
-      Left MissingPathSource
-  | otherwise =
-      Right ()
+validatePathSource algo = requireNode MissingPathSource (requiresPath algo)
 
 validatePathTarget :: Algorithm -> Maybe NodeId -> Either AlgorithmError ()
-validatePathTarget algo target
-  | pathAlgorithm algo =
-      requirePathTarget target >> Right ()
-  | otherwise =
-      Right ()
+validatePathTarget algo = requireNode MissingPathTarget (requiresPath algo)
 
 resolveAlgorithm :: Algorithm -> SomeAlgorithmSpec
 resolveAlgorithm algo = case algo of

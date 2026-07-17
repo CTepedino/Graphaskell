@@ -32,6 +32,7 @@ parseAlgorithmOpt :: String -> Either CliError Algorithm
 parseAlgorithmOpt raw =
   case map toUpper raw of
     "BFS" -> Right BFS
+    "BREADTHFIRSTSEARCH" -> Right BFS
     "BELLMANFORD" -> Right BellmanFord
     "BELLMAN-FORD" -> Right BellmanFord
     "SSSP" -> Right BellmanFord
