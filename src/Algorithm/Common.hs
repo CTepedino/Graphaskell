@@ -5,7 +5,6 @@ module Algorithm.Common
     extractLabelResult,
     reconstructPath,
     runVertexUpdate,
-    labelVertexUpdate,
     labelVertexUpdateAlwaysEmit,
     bfsCandidates,
     tryImproveDistance,
@@ -198,20 +197,6 @@ emitDistanceMessages outTargets vtx state =
 labelInitState :: NodeId -> RunConfig -> LabelState
 labelInitState nodeId _cfg =
   LabelState nodeId
-
-labelVertexUpdate ::
-  (NodeId -> [LabelMsg] -> LabelState -> Maybe LabelState) ->
-  VertexContext ->
-  LabelState ->
-  [LabelMsg] ->
-  VertexStepResult LabelState LabelMsg
-labelVertexUpdate update vtx state messages =
-  runVertexUpdate
-    vtx
-    state
-    messages
-    (update (vcNodeId vtx))
-    emitLabelMessages
 
 labelVertexUpdateAlwaysEmit ::
   (NodeId -> [LabelMsg] -> LabelState -> Maybe LabelState) ->

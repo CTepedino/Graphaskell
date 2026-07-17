@@ -1,6 +1,5 @@
 module Algorithm.Spec
   ( SomeAlgorithmSpec (..),
-    requirePathTarget,
     resolveAlgorithm,
     validatePathSource,
     validatePathTarget,

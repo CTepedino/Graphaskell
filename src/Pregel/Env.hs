@@ -1,7 +1,6 @@
 module Pregel.Env
   ( PregelEnv (..),
     initEnv,
-    flushQueue,
     flushVertexQueue,
     deliverAll,
     activeVerticesSTM,

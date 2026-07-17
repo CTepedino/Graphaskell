@@ -12,7 +12,6 @@ import Algorithm.Common
 import Algorithm.Messages (LabelMsg (..))
 import Algorithm.State (LabelState (..))
 import Algorithm.Types (AlgorithmSpec, LabelLog, mkLabelSpec)
-import Data.List (minimum)
 import qualified Data.Map.Strict as Map
 import Graph.Types (Edge (..), NodeId, ValidGraph, graphEdges, graphNodes)
 import Graph.VertexContext (VertexContext)

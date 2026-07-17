@@ -6,7 +6,6 @@ module Algorithm.Types
     LabelLog,
     RankLog,
     SomeAlgorithmSpec (..),
-    someMaxSupersteps,
   )
 where
 
@@ -57,10 +56,6 @@ data SomeAlgorithmSpec where
     (DescribeLogEntry log, MessageLog msg log, Eq log, Show log, Eq state) =>
     AlgorithmSpec state msg log ->
     SomeAlgorithmSpec
-
-someMaxSupersteps :: SomeAlgorithmSpec -> Int -> Int
-someMaxSupersteps (SomeAlgorithmSpec spec) =
-  specMaxSupersteps spec
 
 mkLabelSpec ::
   (VertexContext -> LabelState -> [LabelMsg] -> VertexStepResult LabelState LabelMsg) ->

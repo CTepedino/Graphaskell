@@ -5,7 +5,7 @@ import Algorithm.Messages (DistanceMsg (..), RankMsg)
 import Algorithm.Result (Result (..))
 import Output.Result (describeResult)
 import Data.List (isInfixOf)
-import Fixtures (disconnectedGraphText, runFixture)
+import Fixtures (disconnectedGraphText, runFixtureEither)
 import Algorithm.Name (Algorithm (..))
 import Graph.Types (Distance (..), NodeId (..), zeroDistance)
 import Output.Trace (describeRun)
@@ -35,7 +35,7 @@ traceTests =
           "maximum superstep limit reached" `isInfixOf` output,
       "describeRun formats connected components" ~: do
         SomePregelRun run <-
-          requireFixture (runFixture ConnectedComponents (NodeId 0) Nothing disconnectedGraphText)
+          requireFixture (runFixtureEither ConnectedComponents (NodeId 0) Nothing disconnectedGraphText)
         let output = describeRun False run
         assertComponentsListed "Result: connected components" output
         assertComponentsListed "component 0: [0,1]" output

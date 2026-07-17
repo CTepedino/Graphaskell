@@ -10,7 +10,6 @@ module TestSupport
     examplesGraphPaths,
     labelPropagationExpected,
     nodeLabelsMatch,
-    pathSourceTarget,
     rankingsApprox,
     readExampleGraph,
     requireFixture,

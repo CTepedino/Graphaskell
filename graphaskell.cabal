@@ -12,8 +12,7 @@ common lib-deps
         async,
         containers,
         optparse-applicative,
-        stm,
-        transformers
+        stm
 
 library
     import:           lib-deps

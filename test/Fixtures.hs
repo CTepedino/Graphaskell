@@ -6,7 +6,6 @@ module Fixtures
     pageRankGraphText,
     parseFixtureEither,
     parseFixture,
-    runFixture,
     runFixtureEither,
   )
 where
@@ -98,15 +97,6 @@ runFixtureEither algorithm source target text = do
   where
     first f (Left err) = Left (f err)
     first _ (Right value) = Right value
-
-runFixture ::
-  Algorithm ->
-  NodeId ->
-  Maybe NodeId ->
-  String ->
-  Either FixtureError SomePregelRun
-runFixture =
-  runFixtureEither
 
 mkRunConfigFor ::
   AlgorithmSpec state msg log ->

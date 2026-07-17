@@ -1,11 +1,9 @@
 module Pregel.Superstep
   ( SuperstepResult (..),
-    applyVertexUpdate,
     activeVerticesWithMessages,
     enqueueMessages,
     initialVertexStates,
     mergeSuperstepOutcomes,
-    mergeUpdatedStates,
     mkSuperstepLog,
     processActiveVertices,
     processVertex,
