@@ -53,7 +53,6 @@ vertexUpdate vtx state messages =
 bellmanFordUpdate :: VertexContext -> [DistanceMsg] -> PathState -> Maybe PathState
 bellmanFordUpdate vtx messages =
   tryImproveDistance
-    (vcNodeId vtx)
     (mapMaybe (weightedCandidate vtx) messages)
 
 weightedCandidate :: VertexContext -> DistanceMsg -> Maybe (Distance, NodeId)

@@ -16,12 +16,12 @@ data PathState = PathState
   }
   deriving (Eq, Show)
 
-data LabelState = LabelState
+newtype LabelState = LabelState
   { lsLabel :: NodeId
   }
   deriving (Eq, Show)
 
-data RankState = RankState
+newtype RankState = RankState
   { rsRank :: Double
   }
   deriving Eq
