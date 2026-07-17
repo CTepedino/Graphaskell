@@ -104,9 +104,8 @@ buildGraph nodeTotal edges = do
       pure (ValidGraph (mkGraph nodeTotal edges))
 
 isValidNode :: ValidGraph -> NodeId -> Bool
-isValidNode graph nodeId =
-  let NodeId n = nodeId
-   in n >= 0 && n < nodeCount graph
+isValidNode graph (NodeId n) =
+  n >= 0 && n < nodeCount graph
 
 mkGraph :: Int -> [Edge] -> Graph
 mkGraph nodeTotal edges =

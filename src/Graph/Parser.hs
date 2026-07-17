@@ -3,9 +3,9 @@ module Graph.Parser
   )
 where
 
-import Control.Monad ((<=<), foldM)
+import Control.Monad (foldM)
 import Data.Bifunctor (first)
-import Data.List (nubBy)
+import Data.List (nub)
 import Graph.ParseError
 import Util.Reading (readNonNegativeInt, readPositiveInt, trim)
 import Graph.Types
@@ -20,8 +20,10 @@ import Graph.Types
   )
 
 parseGraphFile :: String -> Either ParseError ValidGraph
-parseGraphFile =
-  finalize <=< foldM step initialState . prepareLines
+parseGraphFile rawInput = do
+  let inputLines = prepareLines rawInput
+  state <- foldM step initialState inputLines
+  finalize state
 
 data ParseState = ParseState
   { psNodeCount :: Maybe Int,
@@ -92,27 +94,23 @@ parseEndpoints fromStr toStr = do
 
 finalize :: ParseState -> Either ParseError ValidGraph
 finalize st = do
-  nodeTotal <-
-    maybe (Left (MissingDirective DirNodes)) Right (psNodeCount st)
+  nodeTotal <- maybe (Left (MissingDirective DirNodes)) Right (psNodeCount st)
   if null (psEdges st)
     then Left NoEdges
     else do
-      let edges = symmetrizeEdges (psUndirected st) (reverse (psEdges st))
+      let edges = symmetrizeEdges (psUndirected st) (psEdges st)
       first graphErrorToParseError (buildGraph nodeTotal edges)
 
 symmetrizeEdges :: Bool -> [Edge] -> [Edge]
 symmetrizeEdges False edges =
   edges
 symmetrizeEdges True edges =
-  nubBy sameEdge $
+  nub $
     edges
       ++ [ Edge to from weight
            | Edge from to weight <- edges,
              from /= to
          ]
-  where
-    sameEdge (Edge fromA toA _) (Edge fromB toB _) =
-      fromA == fromB && toA == toB
 
 graphErrorToParseError :: GraphError -> ParseError
 graphErrorToParseError err =

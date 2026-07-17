@@ -8,6 +8,7 @@ import Cli.Error (CliError (..), displayCliError)
 import Control.Concurrent (getNumCapabilities)
 import Data.Bifunctor (first)
 import Data.Char (toUpper)
+import Data.Maybe (fromMaybe)
 import Algorithm.Name (Algorithm (..))
 import Util.Reading (readNonNegativeInt)
 import Graph.Types (NodeId (..))
@@ -22,7 +23,6 @@ data Options = Options
     optMaxCapabilities :: Int,
     optVerbose :: Bool
   }
-  deriving (Eq, Show)
 
 parseNodeIdOpt :: String -> Either CliError NodeId
 parseNodeIdOpt raw =
@@ -135,7 +135,7 @@ parseOptions = do
                 \ are specified via CLI flags."
           )
       )
-  case validateThreads maxThreads (maybe maxThreads id mThreads) of
+  case validateThreads maxThreads (fromMaybe maxThreads mThreads) of
     Left err ->
       pure (Left err)
     Right threadCount ->
