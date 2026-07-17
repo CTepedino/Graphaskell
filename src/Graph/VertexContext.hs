@@ -20,7 +20,6 @@ data VertexContext = VertexContext
     vcNodeCount :: Int,
     vcAllNodes :: [NodeId]
   }
-  deriving (Eq, Show)
 
 type VertexContexts = Map NodeId VertexContext
 

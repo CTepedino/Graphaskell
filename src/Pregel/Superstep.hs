@@ -24,7 +24,6 @@ data SuperstepResult state msg log = SuperstepResult
     ssEntries :: [log],
     ssStateChanged :: Bool
   }
-  deriving (Eq, Show)
 
 applyVertexUpdate ::
   AlgorithmSpec state msg log ->

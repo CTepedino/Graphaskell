@@ -24,7 +24,7 @@ import SequentialEngine (runPregelSequential)
 data FixtureError
   = FixtureParse ParseError
   | FixtureRun PregelError
-  deriving (Eq, Show)
+  deriving Show
 
 simpleGraphText :: String
 simpleGraphText =

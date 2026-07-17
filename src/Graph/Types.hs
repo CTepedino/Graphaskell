@@ -23,13 +23,13 @@ import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 
 newtype NodeId = NodeId {unNodeId :: Int}
-  deriving (Eq, Ord, Read)
+  deriving (Eq, Ord)
 
 newtype Distance = Distance {unDistance :: Int}
-  deriving (Eq, Ord, Read)
+  deriving (Eq, Ord)
 
 newtype Weight = Weight {unWeight :: Int}
-  deriving (Eq, Ord, Read)
+  deriving Eq
 
 instance Show NodeId where
   show = show . unNodeId

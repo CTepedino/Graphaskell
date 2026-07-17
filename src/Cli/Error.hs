@@ -9,7 +9,6 @@ data CliError
   | UnknownAlgorithm String
   | ThreadsTooLow
   | ThreadsExceedCapabilities Int Int
-  deriving (Eq, Show)
 
 displayCliError :: CliError -> String
 displayCliError err =

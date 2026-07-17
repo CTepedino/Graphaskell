@@ -11,7 +11,7 @@ data PregelError
   = MissingVertexContext NodeId
   | MissingMessageQueue NodeId
   | ResultExtraction AlgorithmError
-  deriving (Eq, Show)
+  deriving Show
 
 displayPregelError :: PregelError -> String
 displayPregelError err =

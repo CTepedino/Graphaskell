@@ -27,7 +27,7 @@ data PregelRun log = PregelRun
     prResult :: Result,
     prMaxStepsReached :: Bool
   }
-  deriving (Eq, Show)
+  deriving Eq
 
 data RunConfig = RunConfig
   { rcGraph :: ValidGraph,
@@ -37,7 +37,6 @@ data RunConfig = RunConfig
     rcMaxSteps :: Int,
     rcTrace :: Bool
   }
-  deriving (Eq, Show)
 
 mkRunConfig ::
   ValidGraph ->
@@ -61,7 +60,6 @@ data VertexStepResult state msg = VertexStepResult
   { vsrState :: state,
     vsrOutgoing :: [(NodeId, msg)]
   }
-  deriving (Eq, Show)
 
 type VertexStates state = Map NodeId state
 

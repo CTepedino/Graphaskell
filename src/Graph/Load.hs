@@ -13,7 +13,7 @@ import Graph.Types (ValidGraph)
 data LoadGraphError
   = LoadReadError FilePath String
   | LoadParseError ParseError
-  deriving (Eq, Show)
+  deriving Show
 
 displayLoadGraphError :: LoadGraphError -> String
 displayLoadGraphError err =

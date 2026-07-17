@@ -24,7 +24,7 @@ data LabelState = LabelState
 data RankState = RankState
   { rsRank :: Double
   }
-  deriving (Eq, Show)
+  deriving Eq
 
 emptyPathState :: PathState
 emptyPathState =

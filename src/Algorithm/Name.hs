@@ -9,4 +9,4 @@ data Algorithm
   | PageRank
   | ConnectedComponents
   | LabelPropagation
-  deriving (Eq, Show, Read)
+  deriving Show
