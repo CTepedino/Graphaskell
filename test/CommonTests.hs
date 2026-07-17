@@ -21,13 +21,13 @@ commonTests :: Test
 commonTests =
   TestList
     [ "tryImproveDistance accepts a better candidate" ~:
-        tryImproveDistance (NodeId 1) [(Distance 2, NodeId 0)] (emptyPathState {psDistance = Just (Distance 5)})
+        tryImproveDistance [(Distance 2, NodeId 0)] (emptyPathState {psDistance = Just (Distance 5)})
           @?= Just (PathState (Just (Distance 2)) (Just (NodeId 0))),
       "tryImproveDistance ignores a worse candidate" ~:
-        tryImproveDistance (NodeId 1) [(Distance 5, NodeId 0)] (emptyPathState {psDistance = Just (Distance 2)})
+        tryImproveDistance [(Distance 5, NodeId 0)] (emptyPathState {psDistance = Just (Distance 2)})
           @?= Nothing,
       "tryImproveDistance is unchanged with no candidates" ~:
-        tryImproveDistance (NodeId 1) [] emptyPathState @?= Nothing,
+        tryImproveDistance [] emptyPathState @?= Nothing,
       "pathObserver records distance updates" ~:
         pathObserver
           (NodeId 1)

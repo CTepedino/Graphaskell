@@ -443,10 +443,9 @@ genCandidates =
 prop_tryImproveDistanceNeverWorsens :: Property
 prop_tryImproveDistanceNeverWorsens =
   forAll genDistance $ \current ->
-    forAll genCandidates $ \candidates ->
-      forAll genNodeId $ \nodeId ->
+      forAll genCandidates $ \candidates ->
         let state = emptyPathState {psDistance = Just current}
-         in case tryImproveDistance nodeId candidates state of
+         in case tryImproveDistance candidates state of
               Nothing ->
                 all ((>= current) . fst) candidates
               Just improved ->
