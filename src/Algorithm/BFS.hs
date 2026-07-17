@@ -17,7 +17,6 @@ import Algorithm.Messages (DistanceMsg)
 import Algorithm.Observability (pathObserver)
 import Algorithm.State (PathState, emptyPathState)
 import Algorithm.Types (AlgorithmSpec (..), PathLog)
-import Graph.Types (NodeId)
 import Graph.VertexContext (VertexContext (..), outNeighbors)
 import Pregel.Types
 
@@ -43,9 +42,9 @@ vertexUpdate vtx state messages =
     vtx
     state
     messages
-    (bfsUpdate (vcNodeId vtx))
+    bfsUpdate
     (emitDistanceMessages outNeighbors)
 
-bfsUpdate :: NodeId -> [DistanceMsg] -> PathState -> Maybe PathState
-bfsUpdate nodeId messages =
-  tryImproveDistance nodeId (bfsCandidates messages)
+bfsUpdate :: [DistanceMsg] -> PathState -> Maybe PathState
+bfsUpdate messages =
+  tryImproveDistance (bfsCandidates messages)

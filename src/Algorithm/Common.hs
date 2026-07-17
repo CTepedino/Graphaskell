@@ -134,25 +134,23 @@ bfsCandidates messages =
   ]
 
 tryImproveDistance ::
-  NodeId ->
   [(Distance, NodeId)] ->
   PathState ->
   Maybe PathState
-tryImproveDistance _ [] _ =
+tryImproveDistance [] _ =
   Nothing
-tryImproveDistance _nodeId candidates state =
+tryImproveDistance candidates state =
   let (newDist, predecessor) =
         minimumBy (comparing fst <> comparing snd) candidates
    in case psDistance state of
         Just current | newDist >= current ->
           Nothing
         _ ->
-          Just
-            ( state
+          Just state
                 { psDistance = Just newDist,
                   psPredecessor = Just predecessor
                 }
-            )
+
 
 tryRelabel :: NodeId -> NodeId -> LabelState -> Maybe LabelState
 tryRelabel _nodeId newLabel state =
