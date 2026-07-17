@@ -1,5 +1,6 @@
 module SequentialEngine
   ( runPregelSequential,
+    processActiveVertices,
   )
 where
 
@@ -13,14 +14,40 @@ import Pregel.Error (PregelError (..))
 import Pregel.Loop (finalizeRun, loopRunner)
 import Pregel.Superstep
   ( SuperstepResult (..),
-    activeVerticesWithMessages,
-    enqueueMessages,
     initialVertexStates,
-    processActiveVertices,
+    mergeSuperstepOutcomes,
+    processVertex,
   )
 import Pregel.Types
 
 type SequentialM msg a = StateT (MessageQueues msg) (Either PregelError) a
+
+activeVerticesWithMessages :: MessageQueues msg -> [NodeId]
+activeVerticesWithMessages =
+  Map.keys . Map.filter (not . null)
+
+enqueueMessages :: MessageQueues msg -> [(NodeId, msg)] -> MessageQueues msg
+enqueueMessages =
+  foldr
+    ( \(nodeId, message) queues ->
+        Map.insertWith (++) nodeId [message] queues
+    )
+
+processActiveVertices ::
+  (MessageLog msg log, Eq state) =>
+  Bool ->
+  AlgorithmSpec state msg log ->
+  VertexContexts ->
+  VertexStates state ->
+  (NodeId -> [msg]) ->
+  [NodeId] ->
+  Either PregelError (SuperstepResult state msg log)
+processActiveVertices tracing spec contexts states messageFor actives =
+  case mapM (\nodeId -> processVertex tracing spec contexts states nodeId (messageFor nodeId)) actives of
+    Left err ->
+      Left err
+    Right outcomes ->
+      Right (mergeSuperstepOutcomes states outcomes)
 
 runPregelSequential ::
   (MessageLog msg log, Eq state) =>

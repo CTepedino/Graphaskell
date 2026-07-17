@@ -7,11 +7,8 @@ import Algorithm.State (PathState (..), emptyPathState)
 import qualified Data.Map.Strict as Map
 import Graph.Types (Distance (..), Edge (..), NodeId (..), ValidGraph, buildGraph, defaultEdgeWeight, zeroDistance)
 import Graph.VertexContext (buildVertexContexts)
-import Pregel.Superstep
-  ( SuperstepResult (..),
-    initialVertexStates,
-    processActiveVertices,
-  )
+import Pregel.Superstep (SuperstepResult (..), initialVertexStates)
+import SequentialEngine (processActiveVertices)
 import Pregel.Types (RunConfig (..))
 import Test.HUnit
 

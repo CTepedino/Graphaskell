@@ -1,11 +1,8 @@
 module Pregel.Superstep
   ( SuperstepResult (..),
-    activeVerticesWithMessages,
-    enqueueMessages,
     initialVertexStates,
     mergeSuperstepOutcomes,
     mkSuperstepLog,
-    processActiveVertices,
     processVertex,
   )
 where
@@ -47,17 +44,6 @@ collectVertexLogs ::
 collectVertexLogs spec nodeId oldState result =
   specObserveStep spec nodeId oldState (vsrState result) (vsrOutgoing result)
     ++ messageSentLogs nodeId (vsrOutgoing result)
-
-activeVerticesWithMessages :: MessageQueues msg -> [NodeId]
-activeVerticesWithMessages =
-  Map.keys . Map.filter (not . null)
-
-enqueueMessages :: MessageQueues msg -> [(NodeId, msg)] -> MessageQueues msg
-enqueueMessages =
-  foldr
-    ( \(nodeId, message) queues ->
-        Map.insertWith (++) nodeId [message] queues
-    )
 
 mergeUpdatedStates ::
   VertexStates state ->
@@ -125,22 +111,6 @@ mergeSuperstepOutcomes states outcomes =
           )
           outcomes
     }
-
-processActiveVertices ::
-  (MessageLog msg log, Eq state) =>
-  Bool ->
-  AlgorithmSpec state msg log ->
-  VertexContexts ->
-  VertexStates state ->
-  (NodeId -> [msg]) ->
-  [NodeId] ->
-  Either PregelError (SuperstepResult state msg log)
-processActiveVertices tracing spec contexts states messageFor actives =
-  case mapM (\nodeId -> processVertex tracing spec contexts states nodeId (messageFor nodeId)) actives of
-    Left err ->
-      Left err
-    Right outcomes ->
-      Right (mergeSuperstepOutcomes states outcomes)
 
 mkSuperstepLog ::
   Int ->
