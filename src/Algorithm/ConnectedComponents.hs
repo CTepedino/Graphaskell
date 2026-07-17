@@ -8,11 +8,12 @@ import Algorithm.Common
     labelVertexUpdateAlwaysEmit,
     labelsFromMessages,
     minimumWithSelf,
+    mkLabelSpec,
     tryRelabel,
   )
 import Algorithm.Messages (LabelMsg)
 import Algorithm.State (LabelState (..))
-import Algorithm.Types (AlgorithmSpec, LabelLog, mkLabelSpec)
+import Algorithm.Types (AlgorithmSpec, LabelLog)
 import Graph.Types (NodeId)
 import Graph.VertexContext (VertexContext)
 import Pregel.Types

@@ -4,9 +4,13 @@ module Algorithm.PageRank
 where
 
 import Algorithm.Common (extractRankingsResult)
+import Algorithm.Error (AlgorithmError)
 import Algorithm.Messages (RankMsg (..))
-import Algorithm.State (RankState (..))
-import Algorithm.Types (AlgorithmSpec, RankLog, mkRankSpec)
+import Algorithm.Observability (rankObserver)
+import Algorithm.Result (Result)
+import Algorithm.State (RankState (..), emptyRankState)
+import Algorithm.Types (AlgorithmSpec (..), RankLog)
+import Data.Map.Strict (Map)
 import Graph.Types (NodeId, graphNodes, neighbors, nodeCount)
 import Graph.VertexContext (VertexContext (..), allNodes, outNeighbors, outDegree)
 import Pregel.Types
@@ -82,3 +86,25 @@ emitOutgoing vtx state =
               | to <- outNeighbors vtx
             ]
    in rankMessages ++ activationMessages (allNodes vtx)
+
+
+pageRankMaxSupersteps :: Int -> Int
+pageRankMaxSupersteps n =
+  max 50 (n * n)
+
+mkRankSpec ::
+  (NodeId -> RunConfig -> RankState) ->
+  (RunConfig -> [(NodeId, RankMsg)]) ->
+  (VertexContext -> RankState -> [RankMsg] -> VertexStepResult RankState RankMsg) ->
+  (Map NodeId RankState -> RunConfig -> Either AlgorithmError Result) ->
+  AlgorithmSpec RankState RankMsg RankLog
+mkRankSpec initStateFn bootstrapFn vertexUpdateFn extractResult =
+  AlgorithmSpec
+    { specInitState = initStateFn,
+      specDefaultState = emptyRankState,
+      specBootstrap = bootstrapFn,
+      specVertexUpdate = vertexUpdateFn,
+      specExtractResult = extractResult,
+      specMaxSupersteps = pageRankMaxSupersteps,
+      specObserveStep = rankObserver
+    }

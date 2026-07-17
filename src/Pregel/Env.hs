@@ -15,7 +15,7 @@ import qualified Data.Sequence as Seq
 import Graph.Types (NodeId, ValidGraph, graphNodes)
 import Pregel.Error (PregelError (..))
 
-data PregelEnv msg = PregelEnv
+newtype PregelEnv msg = PregelEnv
   { peQueues :: Map.Map NodeId (TQueue msg)
   }
 

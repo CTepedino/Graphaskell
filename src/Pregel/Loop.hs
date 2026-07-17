@@ -41,15 +41,7 @@ loopRunner cfg getActives runSuperstep deliver step states = go step states
                           (ssOutgoing result)
                           (ssEntries result)
                   if not (ssStateChanged result)
-                    then
-                      pure
-                        ( Right
-                            ( ssNewStates result,
-                              [logEntry],
-                              step' + 1,
-                              False
-                            )
-                        )
+                    then pure (Right (ssNewStates result, [logEntry], step' + 1, False) )
                     else do
                       deliverResult <- deliver (ssOutgoing result)
                       case deliverResult of

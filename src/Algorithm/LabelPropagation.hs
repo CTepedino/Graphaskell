@@ -7,11 +7,12 @@ where
 import Algorithm.Common
   ( extractLabelResult,
     labelVertexUpdateAlwaysEmit,
+    mkLabelSpec,
     tryRelabel,
   )
 import Algorithm.Messages (LabelMsg (..))
 import Algorithm.State (LabelState (..))
-import Algorithm.Types (AlgorithmSpec, LabelLog, mkLabelSpec)
+import Algorithm.Types (AlgorithmSpec, LabelLog)
 import qualified Data.Map.Strict as Map
 import Graph.Types (Edge (..), NodeId, ValidGraph, graphEdges, graphNodes)
 import Graph.VertexContext (VertexContext)

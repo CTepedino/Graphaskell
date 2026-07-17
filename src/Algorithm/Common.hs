@@ -6,6 +6,7 @@ module Algorithm.Common
     reconstructPath,
     runVertexUpdate,
     labelVertexUpdateAlwaysEmit,
+    mkLabelSpec,
     bfsCandidates,
     tryImproveDistance,
     tryRelabel,
@@ -18,19 +19,21 @@ module Algorithm.Common
     pathInitState,
     pathBootstrap,
     atLeastOneSuperstep,
-    pageRankMaxSupersteps,
   )
 where
 
 import Algorithm.Error (AlgorithmError (..))
 import Algorithm.Messages (DistanceMsg (..), LabelMsg (..))
+import Algorithm.Observability (labelObserver)
 import Algorithm.Result (Result (..))
 import Algorithm.State
   ( LabelState (..),
     PathState (..),
     RankState (..),
+    emptyLabelState,
     emptyPathState,
   )
+import Algorithm.Types (AlgorithmSpec (..), LabelLog)
 import Data.List (minimumBy, sort)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
@@ -234,6 +237,17 @@ pathBootstrap cfg =
 atLeastOneSuperstep :: Int -> Int
 atLeastOneSuperstep n = max 1 n
 
-pageRankMaxSupersteps :: Int -> Int
-pageRankMaxSupersteps n =
-  max 50 (n * n)
+mkLabelSpec ::
+  (VertexContext -> LabelState -> [LabelMsg] -> VertexStepResult LabelState LabelMsg) ->
+  (Map NodeId LabelState -> RunConfig -> Either AlgorithmError Result) ->
+  AlgorithmSpec LabelState LabelMsg LabelLog
+mkLabelSpec vertexUpdate extractResult =
+  AlgorithmSpec
+    { specInitState = labelInitState,
+      specDefaultState = emptyLabelState,
+      specBootstrap = labelBootstrap,
+      specVertexUpdate = vertexUpdate,
+      specExtractResult = extractResult,
+      specMaxSupersteps = atLeastOneSuperstep,
+      specObserveStep = labelObserver
+    }

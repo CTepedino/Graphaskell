@@ -1,7 +1,5 @@
 module Algorithm.Types
   ( AlgorithmSpec (..),
-    mkLabelSpec,
-    mkRankSpec,
     PathLog,
     LabelLog,
     RankLog,
@@ -9,20 +7,12 @@ module Algorithm.Types
   )
 where
 
-import Algorithm.Common
-  ( atLeastOneSuperstep,
-    labelBootstrap,
-    labelInitState,
-    pageRankMaxSupersteps,
-  )
 import Algorithm.Error (AlgorithmError (..))
 import Algorithm.Log (LabelLogEntry (..), MessageLog, PathLogEntry (..), RankLogEntry (..), DescribeLogEntry)
 import Algorithm.Messages (DistanceMsg, LabelMsg, RankMsg)
-import Algorithm.Observability (labelObserver, rankObserver)
 import Algorithm.Result (Result)
-import Algorithm.State (LabelState, RankState, emptyLabelState, emptyRankState)
 import Data.Map.Strict (Map)
-import Graph.Types
+import Graph.Types (NodeId)
 import Graph.VertexContext (VertexContext)
 import Pregel.Types (RunConfig, VertexStepResult)
 
@@ -56,35 +46,3 @@ data SomeAlgorithmSpec where
     (DescribeLogEntry log, MessageLog msg log, Eq log, Show log, Eq state) =>
     AlgorithmSpec state msg log ->
     SomeAlgorithmSpec
-
-mkLabelSpec ::
-  (VertexContext -> LabelState -> [LabelMsg] -> VertexStepResult LabelState LabelMsg) ->
-  (Map NodeId LabelState -> RunConfig -> Either AlgorithmError Result) ->
-  AlgorithmSpec LabelState LabelMsg LabelLog
-mkLabelSpec vertexUpdate extractResult =
-  AlgorithmSpec
-    { specInitState = labelInitState,
-      specDefaultState = emptyLabelState,
-      specBootstrap = labelBootstrap,
-      specVertexUpdate = vertexUpdate,
-      specExtractResult = extractResult,
-      specMaxSupersteps = atLeastOneSuperstep,
-      specObserveStep = labelObserver
-    }
-
-mkRankSpec ::
-  (NodeId -> RunConfig -> RankState) ->
-  (RunConfig -> [(NodeId, RankMsg)]) ->
-  (VertexContext -> RankState -> [RankMsg] -> VertexStepResult RankState RankMsg) ->
-  (Map NodeId RankState -> RunConfig -> Either AlgorithmError Result) ->
-  AlgorithmSpec RankState RankMsg RankLog
-mkRankSpec initState bootstrap vertexUpdate extractResult =
-  AlgorithmSpec
-    { specInitState = initState,
-      specDefaultState = emptyRankState,
-      specBootstrap = bootstrap,
-      specVertexUpdate = vertexUpdate,
-      specExtractResult = extractResult,
-      specMaxSupersteps = pageRankMaxSupersteps,
-      specObserveStep = rankObserver
-    }
