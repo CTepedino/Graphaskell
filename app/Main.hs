@@ -81,7 +81,7 @@ configBanner opts =
   [ "Graphaskell",
     "",
     "  Graph:      " ++ optGraphPath opts,
-    "  Source:     " ++ sourceBanner opts,
+    "  Source:     " ++ maybe "—" show (optSource opts),
     "  Target:     " ++ maybe "—" show (optTarget opts),
     "  Algorithm:  " ++ show (optAlgorithm opts),
     "  Threads:    "
@@ -89,11 +89,3 @@ configBanner opts =
       ++ " / "
       ++ show (optMaxCapabilities opts)
     ]
-
-sourceBanner :: Options -> String
-sourceBanner opts =
-  case optSource opts of
-    Just nodeId ->
-      show nodeId
-    Nothing ->
-      "—"

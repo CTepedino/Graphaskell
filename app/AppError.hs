@@ -16,7 +16,6 @@ data AppError
   | AppGraphValidation GraphValidationError
   | AppLoad LoadGraphError
   | AppPregel PregelError
-  deriving (Eq, Show)
 
 displayAppError :: AppError -> String
 displayAppError err =
